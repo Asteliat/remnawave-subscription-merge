@@ -1,9 +1,11 @@
-"""Deterministic merging for the supported subscription representations."""
+"""Deterministic merging for supported client-facing subscription formats."""
 
 import base64
 import binascii
 import json
 from typing import Any
+
+import yaml
 
 from src.remnawave.subscription import SubscriptionPayloadError, detect_format
 
@@ -40,27 +42,37 @@ def _merge_named_lists(main: list[Any], secondary: list[Any], name_key: str) -> 
     return result
 
 
+def _load_yaml(body: str) -> dict[str, Any]:
+    try:
+        value = yaml.safe_load(body)
+    except yaml.YAMLError as exc:
+        raise SubscriptionPayloadError("invalid YAML subscription") from exc
+    if not isinstance(value, dict):
+        raise SubscriptionPayloadError("YAML subscription must be an object")
+    return value
+
+
 def merge_payloads(main: str, secondary: str) -> tuple[str, str]:
     main_format = detect_format(main)
     secondary_format = detect_format(secondary)
     if main_format != secondary_format:
         raise SubscriptionPayloadError("subscription formats do not match")
-
     if main_format == "base64_uri":
-        main_entries = _decode_base64(main)
-        secondary_entries = _decode_base64(secondary)
-        merged = list(dict.fromkeys(main_entries + secondary_entries))
+        merged = list(dict.fromkeys(_decode_base64(main) + _decode_base64(secondary)))
         return _encode_base64(merged), "text/plain"
-
-    main_json = json.loads(main)
-    secondary_json = json.loads(secondary)
-    if main_format == "clash":
+    if main_format == "json_outbounds":
+        try:
+            main_json = json.loads(main)
+            secondary_json = json.loads(secondary)
+        except json.JSONDecodeError as exc:
+            raise SubscriptionPayloadError("invalid JSON subscription") from exc
         result = dict(main_json)
-        result["proxies"] = _merge_named_lists(main_json["proxies"], secondary_json["proxies"], "name")
-        if isinstance(main_json.get("proxy-groups"), list) and isinstance(secondary_json.get("proxy-groups"), list):
-            result["proxy-groups"] = _merge_named_lists(main_json["proxy-groups"], secondary_json["proxy-groups"], "name")
+        result["outbounds"] = _merge_named_lists(main_json["outbounds"], secondary_json["outbounds"], "tag")
         return json.dumps(result, ensure_ascii=False, separators=(",", ":")), "application/json"
-
-    result = dict(main_json)
-    result["outbounds"] = _merge_named_lists(main_json["outbounds"], secondary_json["outbounds"], "tag")
-    return json.dumps(result, ensure_ascii=False, separators=(",", ":")), "application/json"
+    main_yaml = _load_yaml(main)
+    secondary_yaml = _load_yaml(secondary)
+    result = dict(main_yaml)
+    result["proxies"] = _merge_named_lists(main_yaml["proxies"], secondary_yaml["proxies"], "name")
+    if isinstance(main_yaml.get("proxy-groups"), list) and isinstance(secondary_yaml.get("proxy-groups"), list):
+        result["proxy-groups"] = _merge_named_lists(main_yaml["proxy-groups"], secondary_yaml["proxy-groups"], "name")
+    return yaml.safe_dump(result, allow_unicode=True, sort_keys=False), "text/yaml"
