@@ -267,3 +267,58 @@ Project foundation and rules recorded. Implementation stages remain pending.
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
 
+
+## 2026-10-06 — Entry 0002 — Stage A foundation completed
+
+### Context
+The dedicated A2 repository is now moving from the recorded project foundation into implementation. Work was intentionally kept limited to documentation, repository safety, and architecture; no production Remnawave integration was claimed.
+
+### Actions
+- Created the `dev` branch from `main` so implementation work is isolated from the established main history.
+- Added `ARCHITECTURE.md` with A2 invariants, request flow, boundaries, merge semantics, metadata policy, failure model, and statelessness rules.
+- Added `ROADMAP.md` with stages A–I and explicit verification gates.
+- Added `SECURITY.md` covering secrets, logging, upstream requests, client endpoint protection, SSRF boundaries, and testing fixtures.
+- Added a Python/environment-safe `.gitignore`.
+- Replaced the placeholder `README.md` with the actual project purpose, scope, documentation map, and verified current status.
+- Preserved the original `PROJECT_JOURNAL.md` content exactly and appended this entry only at the end.
+
+### Important decisions
+- A2 remains per-user: each user gets an independent hidden secondary subscription; no shared secondary quota is allowed.
+- The service remains stateless for the initial implementation.
+- Remnawave remains external and authoritative; this project will not modify its backend.
+- The first implementation target remains base64/URI, Clash JSON, and sing-box JSON. Xray-specific support is not being claimed without an actual requirement and tests.
+- Merge metadata is treated as a separate design problem from body merging.
+- The middleware fails closed rather than returning a partial result.
+
+### Verification
+- Repository access: verified.
+- Repository visibility: private.
+- Default branch: `main`.
+- Working branch: `dev`, created from `main`.
+- Existing journal content: fetched before modification and preserved.
+- No secrets were added.
+- No Remnawave production configuration, database, Docker volume, or live service was modified.
+- Application code, automated tests, and live integration are still pending and are not claimed complete.
+
+### Changed files
+- `ARCHITECTURE.md`
+- `ROADMAP.md`
+- `SECURITY.md`
+- `.gitignore`
+- `README.md`
+- `PROJECT_JOURNAL.md` (append-only entry only)
+
+### Commits in this stage
+- `c5799064c3fa3bb394685c0f24969ccaf7d45501` — architecture
+- `2499ce0e2059fccc3026018b9d63d3dad8e8ddd5` — roadmap/security
+- `33f2046eed58fd9f91d1184dd2a62205f947bd68` — security policy
+- `f8f37d521d1f96a84a5f0bb4515928ecf965b69c` — gitignore
+- `bf7007f69ba3312432f21e185ef9744769652ab7` — README
+- This journal update is committed separately below.
+
+### Status
+Stage A — Project foundation: COMPLETE.
+Stage B — Remnawave access layer: NEXT.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
