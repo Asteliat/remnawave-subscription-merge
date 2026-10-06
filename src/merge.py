@@ -56,6 +56,10 @@ def _unique_name(name: str, used: set[str], suffix: str = "addsub") -> str:
     return candidate
 
 
+def _secondary_name(name: str, label: str) -> str:
+    return f"{label} {name}".strip() if label.strip() else name
+
+
 def _replace_strings(value: Any, replacements: dict[str, str]) -> Any:
     if isinstance(value, str):
         return replacements.get(value, value)
@@ -93,7 +97,7 @@ def _replace_singbox_references(value: Any, replacements: dict[str, str]) -> Any
     return value
 
 
-def _merge_clash(main: dict[str, Any], secondary: dict[str, Any]) -> dict[str, Any]:
+def _merge_clash(main: dict[str, Any], secondary: dict[str, Any], label: str = "") -> dict[str, Any]:
     result = deepcopy(main)
     main_proxies = result.get("proxies")
     secondary_proxies = secondary.get("proxies")
@@ -110,10 +114,15 @@ def _merge_clash(main: dict[str, Any], secondary: dict[str, Any]) -> dict[str, A
             raise SubscriptionPayloadError("Clash proxy is missing name")
         clone = deepcopy(item)
         old_name = str(clone["name"])
-        if old_name in used:
-            new_name = _unique_name(old_name, used)
+        desired_name = _secondary_name(old_name, label)
+        if desired_name != old_name:
+            replacements[old_name] = desired_name
+        if desired_name in used:
+            new_name = _unique_name(desired_name, used)
             replacements[old_name] = new_name
             clone["name"] = new_name
+        else:
+            clone["name"] = desired_name
         used.add(str(clone["name"]))
         secondary_out.append(clone)
     result["proxies"] = main_proxies + secondary_out
@@ -147,7 +156,7 @@ def _merge_clash(main: dict[str, Any], secondary: dict[str, Any]) -> dict[str, A
     return result
 
 
-def _merge_singbox(main: dict[str, Any], secondary: dict[str, Any]) -> dict[str, Any]:
+def _merge_singbox(main: dict[str, Any], secondary: dict[str, Any], label: str = "") -> dict[str, Any]:
     result = deepcopy(main)
     main_outbounds = result.get("outbounds")
     secondary_outbounds = secondary.get("outbounds")
@@ -166,6 +175,11 @@ def _merge_singbox(main: dict[str, Any], secondary: dict[str, Any]) -> dict[str,
         clone = deepcopy(item)
         tag = str(clone["tag"])
         outbound_type = str(clone["type"])
+        desired_tag = _secondary_name(tag, label)
+        if desired_tag != tag:
+            replacements[tag] = desired_tag
+        tag = desired_tag
+        clone["tag"] = tag
 
         if tag in used:
             main_same = next(
@@ -183,7 +197,8 @@ def _merge_singbox(main: dict[str, Any], secondary: dict[str, Any]) -> dict[str,
                 continue
 
             new_tag = _unique_name(tag, used)
-            replacements[tag] = new_tag
+            original_tag = next((key for key, value in replacements.items() if value == tag), tag)
+            replacements[original_tag] = new_tag
             clone["tag"] = new_tag
 
         used.add(str(clone["tag"]))
@@ -232,7 +247,7 @@ def _replace_xray_references(value: Any, replacements: dict[str, str]) -> Any:
     return value
 
 
-def _merge_xray(main: list[Any], secondary: list[Any]) -> list[Any]:
+def _merge_xray(main: list[Any], secondary: list[Any], label: str = "") -> list[Any]:
     if len(main) != 1 or len(secondary) != 1 or not isinstance(main[0], dict) or not isinstance(secondary[0], dict):
         raise SubscriptionPayloadError("Xray JSON subscription must contain exactly one object")
 
@@ -254,6 +269,9 @@ def _merge_xray(main: list[Any], secondary: list[Any]) -> list[Any]:
             raise SubscriptionPayloadError("Xray outbound is missing tag/protocol")
         clone = deepcopy(item)
         tag = str(clone["tag"])
+        original_tag = tag
+        tag = _secondary_name(tag, label)
+        clone["tag"] = tag
         if tag in used:
             main_same = next(
                 (existing for existing in main_outbounds if isinstance(existing, dict) and existing.get("tag") == tag),
@@ -266,7 +284,7 @@ def _merge_xray(main: list[Any], secondary: list[Any]) -> list[Any]:
             ):
                 continue
             new_tag = _unique_name(tag, used)
-            replacements[tag] = new_tag
+            replacements[original_tag] = new_tag
             clone["tag"] = new_tag
         used.add(str(clone["tag"]))
         secondary_out.append(clone)
@@ -275,14 +293,14 @@ def _merge_xray(main: list[Any], secondary: list[Any]) -> list[Any]:
     return [result]
 
 
-def _merge_json(main_value: Any, secondary_value: Any) -> tuple[Any, str]:
+def _merge_json(main_value: Any, secondary_value: Any, label: str = "") -> tuple[Any, str]:
     if isinstance(main_value, dict) and isinstance(secondary_value, dict):
         if isinstance(main_value.get("outbounds"), list) and isinstance(secondary_value.get("outbounds"), list):
-            return _merge_singbox(main_value, secondary_value), "singbox_json"
+            return _merge_singbox(main_value, secondary_value, label), "singbox_json"
         raise SubscriptionPayloadError("unsupported JSON object subscription format")
 
     if isinstance(main_value, list) and isinstance(secondary_value, list):
-        return _merge_xray(main_value, secondary_value), "xray_json"
+        return _merge_xray(main_value, secondary_value, label), "xray_json"
 
     raise SubscriptionPayloadError("JSON subscription root types do not match")
 
@@ -297,7 +315,7 @@ def _load_yaml(body: str) -> dict[str, Any]:
     return value
 
 
-def merge_payloads(main: str, secondary: str) -> tuple[str, str]:
+def merge_payloads(main: str, secondary: str, secondary_label: str = "") -> tuple[str, str]:
     main_format = detect_format(main)
     secondary_format = detect_format(secondary)
     if main_format != secondary_format:
@@ -313,7 +331,13 @@ def merge_payloads(main: str, secondary: str) -> tuple[str, str]:
         for entry in secondary_entries:
             if entry in merged:
                 continue
-            renamed, name = _rename_base64_entry(entry, used_names)
+            if secondary_label.strip():
+                parts = urlsplit(entry)
+                fragment = unquote(parts.fragment) if parts.fragment else ""
+                labeled = _secondary_name(fragment, secondary_label) if fragment else secondary_label.strip()
+                renamed = urlunsplit((parts.scheme, parts.netloc, parts.path, parts.query, labeled))
+            else:
+                renamed, name = _rename_base64_entry(entry, used_names)
             merged.append(renamed)
             if name:
                 used_names.add(name)
@@ -325,10 +349,10 @@ def merge_payloads(main: str, secondary: str) -> tuple[str, str]:
             secondary_json = json.loads(secondary)
         except json.JSONDecodeError as exc:
             raise SubscriptionPayloadError("invalid JSON subscription") from exc
-        result, _ = _merge_json(main_json, secondary_json)
+        result, _ = _merge_json(main_json, secondary_json, secondary_label)
         return json.dumps(result, ensure_ascii=False, separators=(",", ":")), "application/json"
 
     main_yaml = _load_yaml(main)
     secondary_yaml = _load_yaml(secondary)
-    result = _merge_clash(main_yaml, secondary_yaml)
+    result = _merge_clash(main_yaml, secondary_yaml, secondary_label)
     return yaml.safe_dump(result, allow_unicode=True, sort_keys=False), "text/yaml"
