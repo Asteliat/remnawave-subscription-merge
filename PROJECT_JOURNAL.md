@@ -611,3 +611,46 @@ Execute the same read-only preflight from an environment that can resolve and re
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+
+## 2026-10-06 — Entry 0011 — Live-panel preflight verified from Remnawave server
+
+### Context
+The previous live integration attempt from the assistant execution environment was blocked by DNS resolution failure. The same read-only preflight was therefore executed by the user directly on the server hosting the Remnawave test panel.
+
+### Verification
+- `remkagpt.registvpnconnect.online` resolved successfully to `150.241.99.187` from the Remnawave server.
+- HTTPS connectivity succeeded with HTTP 200.
+- An authenticated request using the user-supplied API token was accepted by the API and returned the expected application-level 404 for a deliberately nonexistent username.
+- The API response was: `{"message":"User with specified params not found","errorCode":"A063"}`
+- No Remnawave mutation was performed.
+- No token value was recorded in the repository, journal, or source code.
+- The temporary response file and shell variable used by the preflight were removed/unset after the check.
+
+### Conclusion
+The network and authentication path from the actual Remnawave host to the Remnawave API is verified. The middleware's live integration can now be tested from this server environment.
+
+### Next large stage
+Use the test panel to establish two independent A2 users/pairs and verify:
+- main username lookup;
+- deterministic `<main_username>_addsub` mapping;
+- protected raw subscription retrieval;
+- actual subscription format;
+- actual `subscription-userinfo` semantics;
+- merged output;
+- per-user isolation and absence of cross-user leakage.
+
+No production mutation is required for the preflight itself.
+
+### Changed files
+- `PROJECT_JOURNAL.md` (append-only entry only)
+
+### Commit
+This journal update is committed as a separate append-only commit.
+
+### Status
+Live-panel network/authentication preflight: VERIFIED.
+Live A2 subscription merge: NOT YET VERIFIED.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
