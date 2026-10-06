@@ -1854,3 +1854,74 @@ Final project audit: **NOT YET COMPLETE**.
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+
+
+## 2026-10-06 — Entry 0031 — Final-audit repository consistency and Remnawave client contract coverage
+
+### Context
+The final project audit was started after Entry 0030. The journal was read before changes, and the repository state on `dev` was compared with the documented status and the live verification already recorded in Entries 0028–0030.
+
+### Audit findings
+The repository implementation was materially ahead of two project documents:
+- `README.md` still said live end-to-end output and automated CI remained to be verified, although Entry 0028/0030 records those checks as passed.
+- `ROADMAP.md` still marked stages B–F as upcoming even though the corresponding access, merge, A2, endpoint, and automated verification work had already been implemented and live-tested.
+
+A repository test gap was also confirmed:
+- there was no dedicated `tests/test_remnawave_client.py`;
+- the authenticated Remnawave client was live-verified previously, but its request/response contract had insufficient isolated automated coverage.
+
+### Changes
+Added `tests/test_remnawave_client.py` with controlled `httpx.MockTransport` coverage for:
+- Bearer authorization and encoded usernames;
+- Remnawave envelope and root-level user response shapes;
+- 404 mapping to the safe not-found exception;
+- upstream HTTP error mapping without leaking response bodies;
+- invalid JSON handling;
+- incomplete user response rejection;
+- deterministic A2 secondary derivation;
+- same-ID A2 mapping rejection.
+
+Updated `README.md` to reflect the verified live A2, CI, and systemd status while keeping reverse-proxy exposure as a remaining deployment-specific concern.
+
+Updated `ROADMAP.md` to synchronize stages B–F and deployment status with the actual implementation and verification state. Stage H is explicitly marked partial/live-verified and Stage I remains in progress.
+
+### Verification
+GitHub Actions CI run #64 for the new Remnawave client tests completed successfully:
+- commit: `fe7ca07d9678e98295118a18ce3e2bfd4195297c`;
+- result: SUCCESS.
+
+The subsequent documentation commits also triggered CI runs #65 and #66; their execution was observed during this stage. The latest repository commits are:
+- `ce480da72b8bf2fd1ee52358afe71714183cd13c` — README status update;
+- `de7d622f203ff757ab81790cfbae615b01b11d9c` — roadmap synchronization.
+
+No production Remnawave data or configuration was changed. No secrets were added, printed, or committed.
+
+### Remaining audit work
+The repository consistency/test-contract portion is complete. The final production audit still needs:
+- dependency/security review;
+- Xray/Sing-box edge-case decision and coverage where justified by the actual Remnawave output;
+- live deployment configuration review;
+- reverse-proxy/client-facing integration if required;
+- final rollout and rollback procedure;
+- final client compatibility checks before production status.
+
+### Changed files
+- `tests/test_remnawave_client.py`
+- `README.md`
+- `ROADMAP.md`
+- `PROJECT_JOURNAL.md` — append-only entry only.
+
+### Commits
+- `fe7ca07d9678e98295118a18ce3e2bfd4195297c` — test: cover Remnawave client contract
+- `ce480da72b8bf2fd1ee52358afe71714183cd13c` — docs: update README verified status
+- `de7d622f203ff757ab81790cfbae615b01b11d9c` — docs: synchronize roadmap with implementation
+- This journal update is committed separately below.
+
+### Status
+Repository consistency audit: **COMPLETE**.
+Remnawave client contract automated coverage: **ADDED / CI VERIFIED**.
+Final production audit: **IN PROGRESS**.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
