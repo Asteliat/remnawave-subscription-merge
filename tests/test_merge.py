@@ -50,3 +50,27 @@ def test_unknown_json_fails_closed() -> None:
 def test_clash_yaml_is_detected_as_yaml() -> None:
     body = yaml.safe_dump({"proxies": [{"name": "one", "server": "example"}]}, sort_keys=False)
     assert detect_format(body) == "clash_yaml"
+
+
+def test_clash_duplicate_proxy_names_are_renamed_and_group_is_extended() -> None:
+    main = yaml.safe_dump({
+        "proxies": [{"name": "rrrrrr", "server": "main"}],
+        "proxy-groups": [{"name": "Proxy", "type": "select", "proxies": ["rrrrrr"]}],
+    }, sort_keys=False)
+    secondary = yaml.safe_dump({
+        "proxies": [{"name": "rrrrrr", "server": "secondary"}],
+        "proxy-groups": [{"name": "Proxy", "type": "select", "proxies": ["rrrrrr"]}],
+    }, sort_keys=False)
+    body, _ = merge_payloads(main, secondary)
+    result = yaml.safe_load(body)
+    names = [item["name"] for item in result["proxies"]]
+    assert names == ["rrrrrr", "rrrrrr [addsub]"]
+    assert result["proxy-groups"][0]["proxies"] == ["rrrrrr", "rrrrrr [addsub]"]
+
+
+def test_json_duplicate_tags_are_renamed() -> None:
+    main = json.dumps({"outbounds": [{"tag": "proxy", "type": "vless"}]})
+    secondary = json.dumps({"outbounds": [{"tag": "proxy", "type": "vless"}]})
+    body, _ = merge_payloads(main, secondary)
+    result = json.loads(body)
+    assert [item["tag"] for item in result["outbounds"]] == ["proxy", "proxy [addsub]"]
