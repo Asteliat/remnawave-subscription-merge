@@ -147,12 +147,11 @@ def test_xray_duplicate_tag_rewrites_known_reference_fields() -> None:
     main = json.dumps([{"outbounds": [{"tag": "proxy", "protocol": "vless"}]}])
     secondary = json.dumps([{
         "outbounds": [{"tag": "proxy", "protocol": "vless"},
-                      {"tag": "wrapper", "protocol": "freedom", "settings": {"domainStrategy": "UseIP"}}],
-        "routing": {"rules": [{"outboundTag": "proxy"}]},
+                      {"tag": "wrapper", "protocol": "freedom", "detour": "proxy"}],
     }])
     body, _ = merge_payloads(main, secondary)
     result = json.loads(body)
-    assert result[0]["routing"]["rules"][0]["outboundTag"] == "proxy [addsub]"
+    assert result[0]["outbounds"][2]["detour"] == "proxy [addsub]"
 
 
 def test_xray_json_list_merge_preserves_main_and_adds_secondary_node() -> None:
