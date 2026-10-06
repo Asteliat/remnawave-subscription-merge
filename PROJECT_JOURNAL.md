@@ -322,3 +322,52 @@ Stage B — Remnawave access layer: NEXT.
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+## 2026-10-06 — Entry 0003 — Stage B Remnawave access layer foundation
+
+### Context
+Stage B implementation started using the verified Remnawave v3.4.4 API contract. The official documentation exposes authenticated user lookup by username and public/protected subscription endpoints. The current implementation intentionally starts with read-only identity resolution and does not mutate Remnawave.
+
+### Verified external contract
+- Remnawave v3.4.4 exposes `GET /api/users/by-username/{username}` and returns user identity fields including `id`, `shortUuid`, `username`, `status`, `expireAt`, and `subscriptionUrl`. citeturn0search0
+- Remnawave exposes protected subscription lookup endpoints and public subscription endpoints under `/api/sub/{shortUuid}`. citeturn0search0turn0search4
+- The public subscription endpoint is intended for client subscription retrieval; the middleware can therefore keep upstream subscription retrieval separate from authenticated user identity resolution. citeturn0search1
+- `subscription-userinfo` is a standardized response header carrying download/total/expire values, so metadata will require explicit merge semantics rather than header concatenation. citeturn0search6
+
+### Actions
+- Added environment-backed Remnawave configuration.
+- Added deterministic A2 secondary username derivation with default suffix `_addsub`.
+- Added a small authenticated, read-only async Remnawave client.
+- Added safe upstream error classes for not-found and unexpected responses.
+- Added response validation for the minimum user fields required by the A2 resolver.
+- Added `resolve_a2_pair()` which resolves main user and its personal secondary user and rejects accidental same-user resolution.
+- Added initial unit tests for mapping isolation, invalid identity, and missing secret configuration.
+
+### Security decisions
+- API credentials are read from environment variables and are never stored in source code.
+- The client does not follow redirects.
+- Upstream errors exposed by the client do not include response bodies or authorization material.
+- The client is read-only at this stage; no Remnawave mutation endpoints are used.
+
+### Important limitation
+The HTTP client and tests are repository-level implementation only. No live Remnawave credentials were used, no production request was made, and no live subscription was modified. The access layer is therefore **implemented but not yet live-integration verified**.
+
+### Changed files
+- `src/remnawave/__init__.py`
+- `src/remnawave/config.py`
+- `src/remnawave/client.py`
+- `tests/test_remnawave_config.py`
+- `PROJECT_JOURNAL.md` (append-only entry only)
+
+### Commits
+- `1f9b389ae513c0e030ed21da05acf93857fce99c` — Remnawave package foundation
+- `9c2bd76d08c391889b0918e22e0dc78c08fa4523` — configuration
+- `99f3a29c862ef05d42448f678f5eff3fb0906c46` — authenticated client
+- `47d35501e7dbe5644100ca5be72c7698515d49ce` — initial tests
+- Journal update commit follows.
+
+### Status
+Stage B: IN PROGRESS. Identity/access foundation is implemented; live integration and full error/format coverage remain.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
