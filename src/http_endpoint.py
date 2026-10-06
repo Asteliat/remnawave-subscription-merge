@@ -28,8 +28,7 @@ async def healthz() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/sub/{username}")
-async def merged_subscription(username: str, request: Request) -> Response:
+async def _merged_subscription(username: str, request: Request, suffix: str = "") -> Response:
     try:
         config = RemnawaveConfig.from_env()
         request_headers = {key: value for key, value in request.headers.items() if key in _FORWARD_HEADERS}
@@ -37,8 +36,8 @@ async def merged_subscription(username: str, request: Request) -> Response:
         async with RemnawaveClient(config) as users:
             main, secondary = await users.resolve_a2_pair(username)
             subscriptions = RemnawaveSubscriptionClient(config, users.http_client)
-            first = await subscriptions.fetch_public(main.subscription_url, request_headers)
-            second = await subscriptions.fetch_public(secondary.subscription_url, request_headers)
+            first = await subscriptions.fetch_public(main.subscription_url, request_headers, suffix=suffix)
+            second = await subscriptions.fetch_public(secondary.subscription_url, request_headers, suffix=suffix)
 
         body, content_type = merge_payloads(first.body, second.body)
         headers = {"Cache-Control": "no-store"}
@@ -61,3 +60,18 @@ async def merged_subscription(username: str, request: Request) -> Response:
         raise HTTPException(status_code=504, detail="subscription upstream timeout") from exc
     except (httpx.HTTPError, ValueError, RemnawaveError) as exc:
         raise HTTPException(status_code=502, detail="subscription upstream error") from exc
+
+
+@app.get("/sub/{username}")
+async def merged_subscription(username: str, request: Request) -> Response:
+    return await _merged_subscription(username, request)
+
+
+@app.get("/sub/{username}/json")
+async def merged_xray_json_subscription(username: str, request: Request) -> Response:
+    return await _merged_subscription(username, request, suffix="json")
+
+
+@app.get("/sub/{username}/singbox")
+async def merged_singbox_subscription(username: str, request: Request) -> Response:
+    return await _merged_subscription(username, request, suffix="singbox")
