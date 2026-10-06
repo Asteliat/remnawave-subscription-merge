@@ -33,11 +33,14 @@ def _config() -> RemnawaveConfig:
 def test_merged_subscription_success_forwards_client_headers(monkeypatch) -> None:
     main = _user(1, "alice", "main-a")
     secondary = _user(2, "alice_addsub", "add-a")
-    body_a = base64.b64encode(b"vless://main\n").decode()
-    body_b = base64.b64encode(b"vless://secondary\n").decode()
+    body_a = base64.b64encode(b"vless://main
+").decode()
+    body_b = base64.b64encode(b"vless://secondary
+").decode()
     seen = []
 
     class FakeUsers:
+        def __init__(self, config): assert config.base_url == "https://remna.test"
         http_client = object()
         async def __aenter__(self): return self
         async def __aexit__(self, *args): return None
@@ -73,6 +76,7 @@ def test_profile_url_is_not_forwarded(monkeypatch) -> None:
     main = _user(1, "alice", "main-a")
     secondary = _user(2, "alice_addsub", "add-a")
     class FakeUsers:
+        def __init__(self, config): assert config.base_url == "https://remna.test"
         http_client = object()
         async def __aenter__(self): return self
         async def __aexit__(self, *args): return None
@@ -81,7 +85,8 @@ def test_profile_url_is_not_forwarded(monkeypatch) -> None:
         def __init__(self, config, http_client): pass
         async def fetch_public(self, subscription_url, request_headers):
             return SubscriptionPayload(
-                body=base64.b64encode(b"vless://one\n").decode(), content_type="text/plain",
+                body=base64.b64encode(b"vless://one
+").decode(), content_type="text/plain",
                 headers={"subscription-userinfo": "download=0;upload=0;total=0;expire=100",
                          "profile-web-page-url": "https://private.example/one"})
     monkeypatch.setattr(endpoint.RemnawaveConfig, "from_env", _config)
@@ -93,6 +98,7 @@ def test_profile_url_is_not_forwarded(monkeypatch) -> None:
 
 def test_upstream_timeout_is_504(monkeypatch) -> None:
     class FakeUsers:
+        def __init__(self, config): assert config.base_url == "https://remna.test"
         async def __aenter__(self): return self
         async def __aexit__(self, *args): return None
         async def resolve_a2_pair(self, username):
@@ -106,6 +112,7 @@ def test_malformed_subscription_is_502(monkeypatch) -> None:
     main = _user(1, "alice", "main-a")
     secondary = _user(2, "alice_addsub", "add-a")
     class FakeUsers:
+        def __init__(self, config): assert config.base_url == "https://remna.test"
         http_client = object()
         async def __aenter__(self): return self
         async def __aexit__(self, *args): return None
