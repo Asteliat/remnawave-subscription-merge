@@ -121,3 +121,59 @@ def test_malformed_subscription_is_502(monkeypatch) -> None:
     monkeypatch.setattr(endpoint, "RemnawaveClient", FakeUsers)
     monkeypatch.setattr(endpoint, "RemnawaveSubscriptionClient", FakeSubscriptions)
     assert TestClient(app).get("/sub/alice").status_code == 502
+
+
+def test_explicit_json_suffix_is_forwarded_to_both_subscriptions(monkeypatch) -> None:
+    main = _user(1, "alice", "main-a")
+    secondary = _user(2, "alice_addsub", "add-a")
+    body = base64.b64encode(b"vless://one\n").decode()
+    seen = []
+
+    class FakeUsers:
+        def __init__(self, config): pass
+        http_client = object()
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): return None
+        async def resolve_a2_pair(self, username): return main, secondary
+
+    class FakeSubscriptions:
+        def __init__(self, config, http_client): pass
+        async def fetch_public(self, subscription_url, request_headers, suffix=""):
+            seen.append((subscription_url, suffix))
+            return _payload(body)
+
+    monkeypatch.setattr(endpoint.RemnawaveConfig, "from_env", _config)
+    monkeypatch.setattr(endpoint, "RemnawaveClient", FakeUsers)
+    monkeypatch.setattr(endpoint, "RemnawaveSubscriptionClient", FakeSubscriptions)
+
+    response = TestClient(app).get("/sub/alice/json")
+    assert response.status_code == 200
+    assert [item[1] for item in seen] == ["json", "json"]
+
+
+def test_explicit_singbox_suffix_is_forwarded_to_both_subscriptions(monkeypatch) -> None:
+    main = _user(1, "alice", "main-a")
+    secondary = _user(2, "alice_addsub", "add-a")
+    body = base64.b64encode(b"vless://one\n").decode()
+    seen = []
+
+    class FakeUsers:
+        def __init__(self, config): pass
+        http_client = object()
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): return None
+        async def resolve_a2_pair(self, username): return main, secondary
+
+    class FakeSubscriptions:
+        def __init__(self, config, http_client): pass
+        async def fetch_public(self, subscription_url, request_headers, suffix=""):
+            seen.append((subscription_url, suffix))
+            return _payload(body)
+
+    monkeypatch.setattr(endpoint.RemnawaveConfig, "from_env", _config)
+    monkeypatch.setattr(endpoint, "RemnawaveClient", FakeUsers)
+    monkeypatch.setattr(endpoint, "RemnawaveSubscriptionClient", FakeSubscriptions)
+
+    response = TestClient(app).get("/sub/alice/singbox")
+    assert response.status_code == 200
+    assert [item[1] for item in seen] == ["singbox", "singbox"]
