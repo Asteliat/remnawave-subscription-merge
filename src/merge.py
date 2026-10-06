@@ -152,6 +152,7 @@ def _merge_singbox(main: dict[str, Any], secondary: dict[str, Any]) -> dict[str,
         used.add(str(clone["tag"]))
         secondary_nodes.append(clone)
 
+    secondary_nodes = [_replace_strings(item, replacements) for item in secondary_nodes]
     result_outbounds = main_outbounds + secondary_nodes
     result["outbounds"] = result_outbounds
 
