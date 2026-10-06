@@ -5,6 +5,7 @@ import json
 from typing import Mapping
 
 import httpx
+import yaml
 
 from .client import RemnawaveError
 from .config import RemnawaveConfig
@@ -62,11 +63,20 @@ def detect_format(body: str) -> str:
     try:
         value = json.loads(text)
     except json.JSONDecodeError:
-        return "base64_uri"
-    if not isinstance(value, dict):
-        raise SubscriptionPayloadError("JSON subscription must be an object")
-    if isinstance(value.get("proxies"), list):
+        value = None
+    else:
+        if not isinstance(value, dict):
+            raise SubscriptionPayloadError("JSON subscription must be an object")
+        if isinstance(value.get("proxies"), list):
+            return "clash_yaml"
+        if isinstance(value.get("outbounds"), list):
+            return "json_outbounds"
+        raise SubscriptionPayloadError("unsupported JSON subscription format")
+
+    try:
+        yaml_value = yaml.safe_load(text)
+    except yaml.YAMLError:
+        yaml_value = None
+    if isinstance(yaml_value, dict) and isinstance(yaml_value.get("proxies"), list):
         return "clash_yaml"
-    if isinstance(value.get("outbounds"), list):
-        return "json_outbounds"
-    raise SubscriptionPayloadError("unsupported JSON subscription format")
+    return "base64_uri"
