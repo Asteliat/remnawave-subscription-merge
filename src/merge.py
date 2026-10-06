@@ -93,36 +93,119 @@ def _merge_clash(main: dict[str, Any], secondary: dict[str, Any]) -> dict[str, A
     return result
 
 
-def _merge_json(main: dict[str, Any], secondary: dict[str, Any]) -> dict[str, Any]:
+def _merge_singbox(main: dict[str, Any], secondary: dict[str, Any]) -> dict[str, Any]:
     result = deepcopy(main)
     main_outbounds = result.get("outbounds")
     secondary_outbounds = secondary.get("outbounds")
     if not isinstance(main_outbounds, list) or not isinstance(secondary_outbounds, list):
-        raise SubscriptionPayloadError("JSON subscription has no valid outbounds list")
+        raise SubscriptionPayloadError("Sing-box subscription has no valid outbounds list")
 
     used = {item.get("tag") for item in main_outbounds if isinstance(item, dict) and item.get("tag")}
     replacements: dict[str, str] = {}
-    secondary_out = []
+    secondary_nodes: list[dict[str, Any]] = []
+
     for item in secondary_outbounds:
-        if not isinstance(item, dict) or not item.get("tag"):
-            raise SubscriptionPayloadError("JSON outbound is missing tag")
+        if not isinstance(item, dict) or not item.get("tag") or not item.get("type"):
+            raise SubscriptionPayloadError("Sing-box outbound is missing tag/type")
         clone = deepcopy(item)
-        old_tag = str(clone["tag"])
-        if old_tag in used:
-            new_tag = _unique_name(old_tag, used)
-            replacements[old_tag] = new_tag
+        tag = str(clone["tag"])
+        outbound_type = str(clone["type"])
+
+        if tag in used:
+            main_same = next(
+                (existing for existing in main_outbounds if isinstance(existing, dict) and existing.get("tag") == tag),
+                None,
+            )
+            if outbound_type == "selector" and isinstance(main_same, dict) and main_same.get("type") == "selector":
+                secondary_selector_refs = clone.get("outbounds", [])
+                main_selector_refs = main_same.get("outbounds")
+                if isinstance(secondary_selector_refs, list) and isinstance(main_selector_refs, list):
+                    for ref in secondary_selector_refs:
+                        replacements.setdefault(str(ref), str(ref))
+                continue
+            if outbound_type == "direct" and isinstance(main_same, dict) and main_same.get("type") == "direct":
+                continue
+
+            new_tag = _unique_name(tag, used)
+            replacements[tag] = new_tag
+            clone["tag"] = new_tag
+
+        used.add(str(clone["tag"]))
+        secondary_nodes.append(clone)
+
+    result_outbounds = main_outbounds + secondary_nodes
+    result["outbounds"] = result_outbounds
+
+    main_selector = next(
+        (
+            item for item in result_outbounds
+            if isinstance(item, dict)
+            and item.get("type") == "selector"
+            and item.get("tag") == "→ Remnawave"
+        ),
+        None,
+    )
+    if isinstance(main_selector, dict):
+        refs = main_selector.get("outbounds")
+        if isinstance(refs, list):
+            for item in secondary_nodes:
+                if item.get("type") == "vless" and item.get("tag") not in refs:
+                    refs.append(item["tag"])
+
+    return result
+
+
+def _merge_xray(main: list[Any], secondary: list[Any]) -> list[Any]:
+    if len(main) != 1 or len(secondary) != 1 or not isinstance(main[0], dict) or not isinstance(secondary[0], dict):
+        raise SubscriptionPayloadError("Xray JSON subscription must contain exactly one object")
+
+    result = deepcopy(main[0])
+    secondary_config = secondary[0]
+    main_outbounds = result.get("outbounds")
+    secondary_outbounds = secondary_config.get("outbounds")
+    if not isinstance(main_outbounds, list) or not isinstance(secondary_outbounds, list):
+        raise SubscriptionPayloadError("Xray JSON subscription has no valid outbounds list")
+
+    used = {item.get("tag") for item in main_outbounds if isinstance(item, dict) and item.get("tag")}
+    secondary_out: list[dict[str, Any]] = []
+    replacements: dict[str, str] = {}
+
+    for item in secondary_outbounds:
+        if not isinstance(item, dict) or not item.get("tag") or not item.get("protocol"):
+            raise SubscriptionPayloadError("Xray outbound is missing tag/protocol")
+        clone = deepcopy(item)
+        tag = str(clone["tag"])
+        if tag in used:
+            main_same = next(
+                (existing for existing in main_outbounds if isinstance(existing, dict) and existing.get("tag") == tag),
+                None,
+            )
+            if (
+                isinstance(main_same, dict)
+                and main_same.get("protocol") == clone.get("protocol")
+                and clone.get("protocol") in {"freedom", "blackhole"}
+            ):
+                continue
+            new_tag = _unique_name(tag, used)
+            replacements[tag] = new_tag
             clone["tag"] = new_tag
         used.add(str(clone["tag"]))
         secondary_out.append(clone)
 
     result["outbounds"] = main_outbounds + [_replace_strings(item, replacements) for item in secondary_out]
-    # Secondary routing/selectors that referred to a renamed tag must follow it.
-    for key in ("routing", "route", "balancers", "observatory"):
-        if key in result and key in secondary:
-            # Keep main configuration as the source of truth; only add no
-            # secondary routing because cross-template semantics are ambiguous.
-            pass
-    return result
+    return [result]
+
+
+def _merge_json(main_value: Any, secondary_value: Any) -> tuple[Any, str]:
+    if isinstance(main_value, dict) and isinstance(secondary_value, dict):
+        if isinstance(main_value.get("outbounds"), list) and isinstance(secondary_value.get("outbounds"), list):
+            return _merge_singbox(main_value, secondary_value), "singbox_json"
+        raise SubscriptionPayloadError("unsupported JSON object subscription format")
+
+    if isinstance(main_value, list) and isinstance(secondary_value, list):
+        return _merge_xray(main_value, secondary_value), "xray_json"
+
+    raise SubscriptionPayloadError("JSON subscription root types do not match")
 
 
 def _load_yaml(body: str) -> dict[str, Any]:
@@ -145,13 +228,13 @@ def merge_payloads(main: str, secondary: str) -> tuple[str, str]:
         merged = list(dict.fromkeys(_decode_base64(main) + _decode_base64(secondary)))
         return _encode_base64(merged), "text/plain"
 
-    if main_format == "json_outbounds":
+    if main_format in {"singbox_json", "xray_json"}:
         try:
             main_json = json.loads(main)
             secondary_json = json.loads(secondary)
         except json.JSONDecodeError as exc:
             raise SubscriptionPayloadError("invalid JSON subscription") from exc
-        result = _merge_json(main_json, secondary_json)
+        result, _ = _merge_json(main_json, secondary_json)
         return json.dumps(result, ensure_ascii=False, separators=(",", ":")), "application/json"
 
     main_yaml = _load_yaml(main)
