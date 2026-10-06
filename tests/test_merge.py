@@ -255,3 +255,58 @@ def test_singbox_duplicate_tag_rewrites_nested_secondary_reference() -> None:
     result = json.loads(body)
     wrapper = next(item for item in result["outbounds"] if item["tag"] == "wrapper")
     assert wrapper["outbounds"] == ["proxy [addsub]"]
+
+
+def test_base64_secondary_label_is_applied() -> None:
+    body, _ = merge_payloads(
+        b64("vless://main@host:443#main"),
+        b64("vless://secondary@host:443#node"),
+        secondary_label="ADDON",
+    )
+    assert base64.b64decode(body).decode().splitlines() == [
+        "vless://main@host:443#main",
+        "vless://secondary@host:443#ADDON%20node",
+    ]
+
+
+def test_clash_secondary_label_updates_group_references() -> None:
+    main = yaml.safe_dump({
+        "proxies": [{"name": "main", "server": "main"}],
+        "proxy-groups": [{"name": "Proxy", "type": "select", "proxies": ["main"]}],
+    }, sort_keys=False)
+    secondary = yaml.safe_dump({
+        "proxies": [{"name": "node", "server": "secondary"}],
+        "proxy-groups": [{"name": "Addon", "type": "select", "proxies": ["node"]}],
+    }, sort_keys=False)
+    body, _ = merge_payloads(main, secondary, secondary_label="ADDON")
+    result = yaml.safe_load(body)
+    assert result["proxies"][1]["name"] == "ADDON node"
+    assert result["proxy-groups"][1]["proxies"] == ["ADDON node"]
+
+
+def test_singbox_secondary_label_rewrites_internal_reference() -> None:
+    main = json.dumps({"outbounds": [{"tag": "main", "type": "vless"}]})
+    secondary = json.dumps({
+        "outbounds": [
+            {"tag": "node", "type": "vless"},
+            {"tag": "selector", "type": "selector", "outbounds": ["node"]},
+        ]
+    })
+    body, _ = merge_payloads(main, secondary, secondary_label="ADDON")
+    result = json.loads(body)
+    assert result["outbounds"][1]["tag"] == "ADDON node"
+    assert result["outbounds"][2]["outbounds"] == ["ADDON node"]
+
+
+def test_xray_secondary_label_rewrites_internal_reference() -> None:
+    main = json.dumps([{"outbounds": [{"tag": "main", "protocol": "vless"}]}])
+    secondary = json.dumps([{
+        "outbounds": [
+            {"tag": "node", "protocol": "vless"},
+            {"tag": "wrapper", "protocol": "freedom", "detour": "node"},
+        ]
+    }])
+    body, _ = merge_payloads(main, secondary, secondary_label="ADDON")
+    result = json.loads(body)
+    assert result[0]["outbounds"][1]["tag"] == "ADDON node"
+    assert result[0]["outbounds"][2]["detour"] == "ADDON node"
