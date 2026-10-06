@@ -1,5 +1,5 @@
 [Unit]
-Description=Remnawave Subscription Merge A2 middleware
+Description=Middleware слияния подписок Remnawave
 After=network-online.target
 Wants=network-online.target
 
