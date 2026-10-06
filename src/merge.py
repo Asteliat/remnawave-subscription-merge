@@ -4,6 +4,7 @@ import base64
 import binascii
 import json
 from copy import deepcopy
+from urllib.parse import unquote, urlsplit, urlunsplit
 from typing import Any
 
 import yaml
@@ -26,6 +27,24 @@ def _decode_base64(text: str) -> list[str]:
 
 def _encode_base64(entries: list[str]) -> str:
     return base64.b64encode(("\n".join(entries) + "\n").encode()).decode()
+
+
+def _base64_entry_name(entry: str) -> str | None:
+    try:
+        fragment = urlsplit(entry).fragment
+    except ValueError:
+        return None
+    return unquote(fragment) if fragment else None
+
+
+def _rename_base64_entry(entry: str, used_names: set[str]) -> tuple[str, str | None]:
+    name = _base64_entry_name(entry)
+    if not name or name not in used_names:
+        return entry, name
+
+    new_name = _unique_name(name, used_names)
+    parts = urlsplit(entry)
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, parts.query, new_name)), new_name
 
 
 def _unique_name(name: str, used: set[str], suffix: str = "addsub") -> str:
@@ -225,7 +244,19 @@ def merge_payloads(main: str, secondary: str) -> tuple[str, str]:
         raise SubscriptionPayloadError("subscription formats do not match")
 
     if main_format == "base64_uri":
-        merged = list(dict.fromkeys(_decode_base64(main) + _decode_base64(secondary)))
+        main_entries = _decode_base64(main)
+        secondary_entries = _decode_base64(secondary)
+        merged = list(dict.fromkeys(main_entries))
+        used_names = {
+            name for entry in merged if (name := _base64_entry_name(entry))
+        }
+        for entry in secondary_entries:
+            if entry in merged:
+                continue
+            renamed, name = _rename_base64_entry(entry, used_names)
+            merged.append(renamed)
+            if name:
+                used_names.add(name)
         return _encode_base64(merged), "text/plain"
 
     if main_format in {"singbox_json", "xray_json"}:
