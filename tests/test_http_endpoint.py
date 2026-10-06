@@ -44,7 +44,7 @@ def test_merged_subscription_success_forwards_client_headers(monkeypatch) -> Non
         http_client = object()
         async def __aenter__(self): return self
         async def __aexit__(self, *args): return None
-        async def resolve_a2_pair(self, username): return main, secondary
+        async def resolve_a2_pair_identifier(self, identifier): return main, secondary
 
     class FakeSubscriptions:
         def __init__(self, config, http_client): assert http_client is FakeUsers.http_client
@@ -81,7 +81,7 @@ def test_profile_url_is_not_forwarded(monkeypatch) -> None:
         http_client = object()
         async def __aenter__(self): return self
         async def __aexit__(self, *args): return None
-        async def resolve_a2_pair(self, username): return main, secondary
+        async def resolve_a2_pair_identifier(self, identifier): return main, secondary
     class FakeSubscriptions:
         def __init__(self, config, http_client): pass
         async def fetch_public(self, subscription_url, request_headers, suffix=""):
@@ -102,7 +102,7 @@ def test_upstream_timeout_is_504(monkeypatch) -> None:
         def __init__(self, config): assert config.base_url == "https://remna.test"
         async def __aenter__(self): return self
         async def __aexit__(self, *args): return None
-        async def resolve_a2_pair(self, username):
+        async def resolve_a2_pair_identifier(self, identifier):
             raise __import__("httpx").ReadTimeout("timeout")
     monkeypatch.setattr(endpoint.RemnawaveConfig, "from_env", _config)
     monkeypatch.setattr(endpoint, "RemnawaveClient", FakeUsers)
@@ -117,7 +117,7 @@ def test_malformed_subscription_is_502(monkeypatch) -> None:
         http_client = object()
         async def __aenter__(self): return self
         async def __aexit__(self, *args): return None
-        async def resolve_a2_pair(self, username): return main, secondary
+        async def resolve_a2_pair_identifier(self, identifier): return main, secondary
     class FakeSubscriptions:
         def __init__(self, config, http_client): pass
         async def fetch_public(self, subscription_url, request_headers, suffix=""): return _payload("not-valid-base64-%%")
@@ -138,7 +138,7 @@ def test_explicit_json_suffix_is_forwarded_to_both_subscriptions(monkeypatch) ->
         http_client = object()
         async def __aenter__(self): return self
         async def __aexit__(self, *args): return None
-        async def resolve_a2_pair(self, username): return main, secondary
+        async def resolve_a2_pair_identifier(self, identifier): return main, secondary
 
     class FakeSubscriptions:
         def __init__(self, config, http_client): pass
@@ -166,7 +166,7 @@ def test_explicit_singbox_suffix_is_forwarded_to_both_subscriptions(monkeypatch)
         http_client = object()
         async def __aenter__(self): return self
         async def __aexit__(self, *args): return None
-        async def resolve_a2_pair(self, username): return main, secondary
+        async def resolve_a2_pair_identifier(self, identifier): return main, secondary
 
     class FakeSubscriptions:
         def __init__(self, config, http_client): pass
@@ -214,3 +214,32 @@ async def test_public_subscription_rejects_oversized_stream_without_content_leng
         subscriptions = RemnawaveSubscriptionClient(_small_config(), client)
         with pytest.raises(SubscriptionPayloadError, match="too large"):
             await subscriptions.fetch_public("https://sub.example/alice")
+
+
+def test_short_uuid_identifier_is_supported(monkeypatch) -> None:
+    main = _user(1, "alice", "main-a")
+    secondary = _user(2, "alice_addsub", "add-a")
+    body_a = base64.b64encode(b"vless://main\n").decode()
+    body_b = base64.b64encode(b"vless://secondary\n").decode()
+
+    class FakeUsers:
+        def __init__(self, config): pass
+        http_client = object()
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): return None
+        async def resolve_a2_pair_identifier(self, identifier):
+            assert identifier == "main-a"
+            return main, secondary
+
+    class FakeSubscriptions:
+        def __init__(self, config, http_client): pass
+        async def fetch_public(self, subscription_url, request_headers, suffix=""):
+            return _payload(body_a if subscription_url.endswith("main-a") else body_b)
+
+    monkeypatch.setattr(endpoint.RemnawaveConfig, "from_env", _config)
+    monkeypatch.setattr(endpoint, "RemnawaveClient", FakeUsers)
+    monkeypatch.setattr(endpoint, "RemnawaveSubscriptionClient", FakeSubscriptions)
+
+    response = TestClient(app).get("/sub/main-a")
+    assert response.status_code == 200
+    assert base64.b64decode(response.text).decode().splitlines() == ["vless://main", "vless://secondary"]
