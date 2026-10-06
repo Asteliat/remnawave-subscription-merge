@@ -96,6 +96,23 @@ class RemnawaveClient:
         payload = await self._get_json(f"/api/users/by-username/{encoded_username}")
         return RemnawaveUser.from_response(payload)
 
+    async def get_user_by_short_uuid(self, short_uuid: str) -> RemnawaveUser:
+        if not short_uuid.strip():
+            raise ValueError("short_uuid must not be empty")
+        encoded_short_uuid = quote(short_uuid.strip(), safe="")
+        payload = await self._get_json(f"/api/users/by-short-uuid/{encoded_short_uuid}")
+        return RemnawaveUser.from_response(payload)
+
+    async def resolve_a2_pair_by_short_uuid(
+        self, short_uuid: str
+    ) -> tuple[RemnawaveUser, RemnawaveUser]:
+        main = await self.get_user_by_short_uuid(short_uuid)
+        secondary_username = self.config.secondary_username(main.username)
+        secondary = await self.get_user_by_username(secondary_username)
+        if main.id == secondary.id:
+            raise RemnawaveUpstreamError("A2 mapping resolved the same Remnawave user twice")
+        return main, secondary
+
     async def resolve_a2_pair(self, main_username: str) -> tuple[RemnawaveUser, RemnawaveUser]:
         main = await self.get_user_by_username(main_username)
         secondary_username = self.config.secondary_username(main.username)
