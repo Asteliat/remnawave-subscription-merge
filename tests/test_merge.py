@@ -25,7 +25,7 @@ def test_clash_yaml_merge_keeps_main_top_level_and_deduplicates_names() -> None:
     result = yaml.safe_load(body)
     assert content_type == "text/yaml"
     assert result["mode"] == "rule"
-    assert [p["name"] for p in result["proxies"]] == ["one", "two"]
+    assert [p["name"] for p in result["proxies"]] == ["one", "one [addsub]", "two"]
 
 
 def test_json_outbounds_merge_by_tag() -> None:
@@ -33,7 +33,7 @@ def test_json_outbounds_merge_by_tag() -> None:
     secondary = json.dumps({"outbounds": [{"tag": "one", "type": "block"}, {"tag": "two", "type": "direct"}]})
     body, _ = merge_payloads(main, secondary)
     result = json.loads(body)
-    assert [x["tag"] for x in result["outbounds"]] == ["one", "two"]
+    assert [x["tag"] for x in result["outbounds"]] == ["one", "one [addsub]", "two"]
     assert result["route"]["final"] == "one"
 
 
