@@ -2243,3 +2243,71 @@ The next step is live-host verification: systemd health, loopback-only port bind
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+## 2026-10-06 — Entry 0038 — Reference merge behavior integrated into the minimal Python middleware
+
+### Scope
+This stage intentionally takes only the useful subscription-merging behavior from the reference project Mrvibecodic/remnawave-subscription-middleware. The reference project's unrelated admin, database, branding, HWID, grace, metrics, and other platform components are not imported.
+
+### Actions
+- Kept the existing Python/FastAPI merge engine and its previously hardened collision/reference handling.
+- Added client-facing identifier resolution by Remnawave shortUuid, with username resolution retained as a backward-compatible fallback.
+- Added authenticated GET /api/users/by-short-uuid/{shortUuid} resolution in the Remnawave client.
+- Preserved deterministic per-user _addsub mapping: main username -> <main_username>_addsub.
+- Added protection against recursively treating an already-secondary username as a new main user.
+- Changed the two upstream subscription fetches to run concurrently with asyncio.gather, following the reference project's parallel-fetch optimization while retaining the existing bounded streaming response protection.
+- Added optional REMNAWAVE_SECONDARY_LABEL configuration. When set, the label is applied consistently to secondary URI fragments, Clash proxy names, Sing-box tags, and Xray tags.
+- Preserved structured reference rewriting so labels/collision renames update only actual reference fields rather than arbitrary strings.
+- Added tests for short-UUID routing, short-UUID A2 resolution, secondary labels across Base64/URI, Clash, Sing-box, and Xray, and recursive secondary-name rejection.
+- Added the new environment variable to .env.example.
+
+### Important design choice
+The reference project's persistent manual mapping/cache tables and Xray swap database were intentionally not copied. The current project remains stateless and deterministic because the A2 _addsub mapping is sufficient for the current requirement; adding a database would expand the core architecture without evidence that it is necessary.
+
+The reference's textual Clash parser was also not copied because the existing Python implementation already uses structured YAML parsing and has stronger collision/reference safeguards.
+
+### Changed files
+- src/remnawave/config.py
+- src/remnawave/client.py
+- src/http_endpoint.py
+- src/merge.py
+- tests/test_merge.py
+- tests/test_remnawave_client.py
+- tests/test_remnawave_config.py
+- tests/test_http_endpoint.py
+- .env.example
+- PROJECT_JOURNAL.md — append-only entry only.
+
+### Commits
+- 4dcd689899875e768d9bbe7334ea58f207f91424 — extend merge configuration
+- ac44e5afc54cdbe5b2663d237c568feb17bcd49a — resolve A2 pair from subscription short UUID
+- bd36ad20ee2c90ee5f04bfda2112eb929582f460 — accept short UUID client identifiers
+- 066437f377a517e0453dcbf42c969c62a84088c8 — add reference-inspired secondary labeling
+- e1ce90615c7199a86f1e087b76f61e41c81803a2 — make labeled URI names deterministic
+- dbf728ed9651d6b999738a87a9d59610fafedb8f — cover short UUID A2 resolution
+- fcbba47bf2317fadaab30c0f625b8207196003a7 — reject recursive secondary mapping
+- 83b7e9b2c23609e87ad9c1fcffee69220f362d5a — expose secondary merge label
+- 3cd83a6a56756ed3c57e30249918b2430e6d5e7e — cover short UUID client endpoint
+
+### Verification
+- Repository CI configuration was inspected and still runs pytest -q plus pip-audit.
+- The available GitHub workflow/status lookup did not expose a run/status for the latest dev push, so CI success is not claimed for this stage.
+- A direct local clone/test run was attempted, but the execution environment has no DNS/network access to GitHub, so local execution could not be completed.
+- Repository-level source and test changes were successfully written to dev.
+- No Remnawave production data or configuration was modified.
+- No credentials or secrets were added.
+
+### Remaining verification
+Before calling this stage production-verified:
+1. GitHub Actions must report the current dev revision green.
+2. The live client-facing endpoint must be tested with a real main short UUID and its personal _addsub user.
+3. Real Base64/URI, Clash, Sing-box, and Xray outputs should be checked against the actual Remnawave subscription responses.
+4. The Caddy-facing production path must be verified separately; this project must not introduce Nginx.
+
+### Status
+Reference merge behavior integration: IMPLEMENTED / repository-written.
+Automated CI verification: PENDING / not exposed by current workflow lookup.
+Live integration: PENDING.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
