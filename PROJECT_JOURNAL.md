@@ -410,3 +410,31 @@ Stage B — access layer + subscription retrieval + core merge engine: IMPLEMENT
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+## 2026-10-06 — Entry 0005 — HTTP stage preparation and verification boundary
+
+### Actions
+- Re-read the append-only journal and current merge implementation before starting the HTTP stage.
+- Designed the external merged-subscription endpoint around the existing A2 resolver and merge engine.
+- Defined the intended response policy: merged body, explicit content type, no-store caching, and no blind forwarding of upstream headers.
+- Attempted to add the HTTP endpoint through the GitHub repository interface, but the repository write was blocked by an automated safety control. No workaround or obfuscation was used.
+
+### Verification boundary
+- The HTTP endpoint is NOT claimed implemented because the write was blocked.
+- The metadata layer is NOT claimed implemented for the same reason: its repository write was blocked.
+- Existing access and merge code remains untouched.
+- No live Remnawave credentials or production data were used.
+
+### Next work
+- Add the metadata policy and HTTP endpoint through an allowed repository-write path.
+- Add endpoint tests for successful merge, missing secondary, upstream failure, malformed payload, cache policy, and cross-user isolation.
+- Run the repository automated test/CI path before claiming the stage complete.
+
+### Changed files
+- PROJECT_JOURNAL.md (append-only entry only)
+
+### Status
+HTTP stage: PREPARED, NOT COMPLETE.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
