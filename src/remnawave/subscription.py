@@ -1,8 +1,8 @@
-"""Fetching and parsing Remnawave subscription payloads."""
+"""Fetch and validate client-facing Remnawave subscriptions."""
 
 from dataclasses import dataclass
 import json
-from typing import Any
+from typing import Mapping
 
 import httpx
 
@@ -22,6 +22,8 @@ class SubscriptionPayload:
 
 
 class RemnawaveSubscriptionClient:
+    """Fetch the public rendered subscription, not the protected raw DTO."""
+
     def __init__(self, config: RemnawaveConfig, http_client: httpx.AsyncClient | None = None) -> None:
         self.config = config
         self._http = http_client
@@ -32,14 +34,15 @@ class RemnawaveSubscriptionClient:
             raise RuntimeError("RemnawaveSubscriptionClient requires an async HTTP client")
         return self._http
 
-    async def fetch_raw(self, short_uuid: str) -> SubscriptionPayload:
-        if not short_uuid.strip():
-            raise ValueError("short_uuid must not be empty")
-        response = await self.http_client.get(
-            f"{self.config.base_url}/api/subscriptions/by-short-uuid/{short_uuid}/raw",
-            params={"withDisabledHosts": "false"},
-            headers={"Authorization": f"Bearer {self.config.api_token}"},
-        )
+    async def fetch_public(self, subscription_url: str, request_headers: Mapping[str, str] | None = None) -> SubscriptionPayload:
+        if not subscription_url.strip():
+            raise ValueError("subscription_url must not be empty")
+        headers = {
+            key: value
+            for key, value in (request_headers or {}).items()
+            if key.lower() in {"user-agent", "x-hwid", "x-device-os", "x-ver-os", "x-device-model"}
+        }
+        response = await self.http_client.get(subscription_url, headers=headers)
         if response.status_code == 404:
             raise SubscriptionPayloadError("subscription not found")
         if response.status_code >= 400:
@@ -50,7 +53,7 @@ class RemnawaveSubscriptionClient:
         return SubscriptionPayload(
             body=body,
             content_type=response.headers.get("content-type", "text/plain").split(";", 1)[0].strip(),
-            headers={k.lower(): v for k, v in response.headers.items()},
+            headers={key.lower(): value for key, value in response.headers.items()},
         )
 
 
@@ -63,7 +66,7 @@ def detect_format(body: str) -> str:
     if not isinstance(value, dict):
         raise SubscriptionPayloadError("JSON subscription must be an object")
     if isinstance(value.get("proxies"), list):
-        return "clash"
+        return "clash_yaml"
     if isinstance(value.get("outbounds"), list):
-        return "sing_box"
+        return "json_outbounds"
     raise SubscriptionPayloadError("unsupported JSON subscription format")
