@@ -1008,3 +1008,37 @@ Live JSON-family verification: **PENDING** because the current Response Rules di
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+
+## 2026-10-06 — Entry 0019 — Live Clash/Mihomo structural merge verification
+
+### Verification
+The live Clash/Mihomo responses saved from the previous User-Agent test were parsed as YAML for both A2 users.
+
+### Observed result
+For both `a2test01` and `a2test02`:
+- YAML parsing succeeded;
+- response size: 1892 bytes;
+- root document is a mapping;
+- exactly 2 proxies are present;
+- proxy names are `rrrrrr` and `rrrrrr [addsub]`, proving the secondary collision-safe rename is active in the live response;
+- exactly 1 proxy group is present;
+- the `→ Remnawave` group contains both proxy names, proving secondary membership was retained and group references were updated;
+- no secret-like root fields were detected by the safety check.
+
+The two users have different response fingerprints, while the structural merge shape is the same. This is consistent with the expected per-user A2 model: same merge topology, independent upstream credentials/configuration.
+
+### Status
+Live Clash/Mihomo structural merge: **VERIFIED** for both A2 users.
+Collision handling and proxy-group membership: **VERIFIED LIVE**.
+Cross-user isolation: structurally supported but requires a stronger non-secret value comparison/fingerprint check before final closure.
+Live JSON-family verification remains pending because the current Remnawave Response Rules did not select JSON for the tested User-Agents.
+
+### Changed files
+- PROJECT_JOURNAL.md (append-only entry only)
+
+### Commit
+- This journal update is committed separately below.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
