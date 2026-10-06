@@ -206,6 +206,26 @@ def _merge_singbox(main: dict[str, Any], secondary: dict[str, Any]) -> dict[str,
     return result
 
 
+def _replace_xray_references(value: Any, replacements: dict[str, str]) -> Any:
+    reference_keys = {"outboundTag", "balancerTag", "detour", "selector", "subjectSelector"}
+    if isinstance(value, list):
+        return [_replace_xray_references(item, replacements) for item in value]
+    if isinstance(value, dict):
+        result = {}
+        for key, item in value.items():
+            if key in reference_keys:
+                if isinstance(item, str):
+                    result[key] = replacements.get(item, item)
+                elif isinstance(item, list):
+                    result[key] = [replacements.get(ref, ref) if isinstance(ref, str) else ref for ref in item]
+                else:
+                    result[key] = item
+            else:
+                result[key] = _replace_xray_references(item, replacements)
+        return result
+    return value
+
+
 def _merge_xray(main: list[Any], secondary: list[Any]) -> list[Any]:
     if len(main) != 1 or len(secondary) != 1 or not isinstance(main[0], dict) or not isinstance(secondary[0], dict):
         raise SubscriptionPayloadError("Xray JSON subscription must contain exactly one object")
@@ -245,7 +265,7 @@ def _merge_xray(main: list[Any], secondary: list[Any]) -> list[Any]:
         used.add(str(clone["tag"]))
         secondary_out.append(clone)
 
-    result["outbounds"] = main_outbounds + [_replace_strings(item, replacements) for item in secondary_out]
+    result["outbounds"] = main_outbounds + [_replace_xray_references(item, replacements) for item in secondary_out]
     return [result]
 
 
