@@ -654,3 +654,110 @@ Live A2 subscription merge: NOT YET VERIFIED.
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+
+## 2026-10-06 — Entry 0012 — Corrected client-facing subscription integration
+
+### Context
+The live Remnawave test established that protected GET /api/subscriptions/by-short-uuid/{shortUuid}/raw does not return a ready-to-consume client subscription body. It returns an internal response envelope containing user data, convertedUserInfo, resolvedProxyConfigs, and response headers.
+
+The four live A2 test users also established that the real subscription-userinfo values are inside that envelope's headers object, while the protected HTTP response itself did not expose subscription-userinfo.
+
+### Live verification performed
+- Four isolated test users/pairs were inspected: a2test01, a2test01_addsub, a2test02, and a2test02_addsub.
+- Each raw response had response keys: user, convertedUserInfo, resolvedProxyConfigs, headers.
+- Each test user had one resolved proxy config.
+- The resolved proxy config was a VLESS + REALITY + TCP configuration.
+- Main users returned subscription-userinfo with total=0.
+- Secondary users returned finite totals of 1 GiB and 2 GiB respectively.
+- All four subscriptions had the same expiry timestamp in the tested environment.
+- The response headers object contained content-disposition, subscription-userinfo, support-url, profile-title, profile-web-page-url, and profile-update-interval.
+- No credentials, UUID values, private keys, or raw proxy configuration values were recorded in the repository or journal.
+
+### Failed inspection command
+The first structural inspection attempt incorrectly combined a pipe with a Python heredoc, so Python consumed the heredoc as stdin instead of the piped JSON. This produced curl write errors and JSONDecodeError output. This was a command-construction error, not a Remnawave failure.
+
+The corrected temporary-file inspection succeeded. Temporary response files and the token shell variable were removed after the inspection.
+
+### Architectural correction
+The middleware no longer treats the protected raw endpoint as the client-facing subscription body.
+
+Instead:
+1. authenticated Remnawave API lookup resolves main and deterministic secondary users;
+2. each user's public subscriptionUrl is fetched;
+3. the incoming client User-Agent and HWID/device headers are forwarded to both public subscription requests;
+4. Remnawave's own Subscription Response Rules render the client-facing format;
+5. the middleware merges the two rendered bodies;
+6. subscription-userinfo is merged explicitly;
+7. the individual upstream profile-web-page-url is not forwarded because it would identify only one source subscription.
+
+This aligns the middleware with Remnawave's public subscription protocol, where response format is selected by client request headers and can be base64 URI, JSON, or YAML. The public endpoint is intentionally separate from the authenticated raw DTO. citeturn0search0turn0search1
+
+### Metadata correction
+The earlier implementation summed total quota values unconditionally. Live evidence showed that the main subscription uses total=0 for an unlimited quota.
+
+The new policy is:
+- download = main + secondary;
+- upload = main + secondary;
+- expire = later expiry;
+- total = 0 if either source has total=0; otherwise main + secondary.
+
+This prevents an unlimited main subscription from becoming falsely limited after merging.
+
+### Implementation changes
+- Replaced protected raw subscription fetching with public subscription URL fetching.
+- Added forwarding of User-Agent, x-hwid, x-device-os, x-ver-os, and x-device-model.
+- Added Clash/Mihomo YAML parsing and merging.
+- Retained base64 URI merging with exact-entry deduplication.
+- Retained JSON outbounds merging for Xray/sing-box-compatible bodies.
+- Preserved selected main subscription response headers.
+- Deliberately omitted profile-web-page-url.
+- Added PyYAML runtime dependency.
+- Added tests for YAML merging, unlimited metadata, client-header forwarding, profile URL omission, timeout, malformed payloads, and existing base64/JSON behavior.
+
+### Changed files
+- src/remnawave/subscription.py
+- src/merge.py
+- src/metadata.py
+- src/http_endpoint.py
+- tests/test_merge.py
+- tests/test_metadata.py
+- tests/test_http_endpoint.py
+- pyproject.toml
+- README.md
+- PROJECT_JOURNAL.md (append-only entry only)
+
+### Commits
+- d99629b62d435221f1a711d999eece4c51211388 — fetch rendered public subscriptions
+- a9c34beba9b78321a75f816f99ff55322766263a — merge rendered YAML and JSON subscriptions
+- 242700e86f2c85c9910bf0bfcbd7a0c6c2cf7bba — preserve unlimited merged quota
+- 08aa16bda34fd4395b25e576a12fbce431ba0db5 — merge rendered public subscriptions at HTTP endpoint
+- 8b50d22970ea447ccf7ca1210f22a0cd87d45141 — add YAML subscription dependency
+- e45bc614c1a1c48626e4d181304cd6bc9f23241f — merge engine tests
+- 09e1bdbed88f16b9ac414fb6c6d49aa66ff0daab — metadata tests
+- 29f0d90fcd87d4316a270a5d8328908d813fb5fa — HTTP endpoint tests
+- 587ef5a6bd464fa99eac553a7c816874ac80f801 — README integration documentation
+- This journal update is the final commit of the stage.
+
+### Verification status
+- Live raw-envelope inspection: VERIFIED.
+- Live subscription-userinfo semantics: VERIFIED.
+- Correct public-subscription architecture: IMPLEMENTED IN REPOSITORY.
+- Local pytest execution: NOT AVAILABLE through the GitHub repository interface used for this stage.
+- GitHub Actions result for the new commits: NOT YET VERIFIED.
+- End-to-end merged public subscription against the live panel: NOT YET VERIFIED.
+- No production Remnawave mutation was performed.
+
+### Next large stage
+Run the new middleware against the actual test panel and verify two A2 pairs end-to-end with at least:
+- base64 output;
+- JSON output;
+- Clash YAML output;
+- merged subscription-userinfo;
+- independent main/addsub mapping for both users;
+- no cross-user leakage;
+- secondary missing/expired behavior;
+- upstream failure behavior.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
