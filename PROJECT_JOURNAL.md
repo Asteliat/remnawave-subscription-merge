@@ -971,3 +971,40 @@ Full live A2 verification is **NOT YET COMPLETE**. JSON/sing-box/Xray and Clash/
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+
+## 2026-10-06 — Entry 0018 — Live format-selection verification by User-Agent
+
+### Verification
+The running loopback middleware was tested for both A2 users (`a2test01`, `a2test02`) with User-Agent values `Happ`, `sing-box`, `ClashMeta`, and `v2rayN`.
+
+### Observed result
+For both users:
+- `Happ`: HTTP 200, 696 bytes, `text/plain; charset=utf-8`, Base64 payload decoding to 2 URI lines.
+- `sing-box`: HTTP 200, 696 bytes, `text/plain; charset=utf-8`, Base64 payload decoding to 2 URI lines.
+- `ClashMeta`: HTTP 200, 1892 bytes, `text/yaml; charset=utf-8`.
+- `v2rayN`: HTTP 200, 696 bytes, `text/plain; charset=utf-8`, Base64 payload decoding to 2 URI lines.
+
+The merged response consistently retained `Cache-Control: no-store` and `subscription-userinfo: upload=0;download=0;total=0;expire=1791903193`. The main `profile-title` was also preserved.
+
+### Important limitation / correction
+The test script intentionally only attempted JSON/Base64 parsing and therefore did not parse the Clash YAML body. Consequently, this step proves that the middleware successfully receives and returns the Remnawave-selected Clash YAML response, but it does **not yet prove from the live body structure** that both main and addsub proxies/groups are present. A dedicated safe YAML structural inspection is required next.
+
+Likewise, the live panel's current Response Rules did not select JSON for the tested `sing-box` or `v2rayN` User-Agents; those requests remained Base64. This is an observation of the current panel rules, not evidence that JSON merge support is broken.
+
+### Isolation observation
+The Base64 outputs for the two users have different SHA-256 fingerprints (`f758e3f1a7be96ac` vs `1f7fdb89950be803`). The Clash outputs also have different fingerprints (`026081040c5c57df` vs `42d2c4f8882e5c4c`). This supports that the two client responses are not byte-identical, but it is not by itself sufficient proof of cross-user isolation.
+
+### Status
+User-Agent format selection: **LIVE VERIFIED** for Base64 and Clash YAML responses.
+Clash merged-content structural verification: **PENDING**.
+Live JSON-family verification: **PENDING** because the current Response Rules did not select JSON for the tested UAs.
+
+### Changed files
+- PROJECT_JOURNAL.md (append-only entry only)
+
+### Commit
+- This journal update is committed separately below.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
