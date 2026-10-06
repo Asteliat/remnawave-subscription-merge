@@ -19,18 +19,8 @@
 
   function token() {
     try {
-      const keys = Object.keys(localStorage);
-      for (const key of keys) {
-        const value = localStorage.getItem(key);
-        if (!value) continue;
-        try {
-          const parsed = JSON.parse(value);
-          if (typeof parsed === "string" && parsed.split(".").length === 3) return parsed;
-          if (parsed && typeof parsed.token === "string") return parsed.token;
-        } catch (_) {
-          if (value.split(".").length === 3) return value;
-        }
-      }
+      const value = localStorage.getItem("rezeis_admin_token");
+      if (value) return value
     } catch (_) {}
     return "";
   }
