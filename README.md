@@ -107,7 +107,6 @@ GitHub Actions запускает эти проверки для dev и pull req
 - SECURITY.md — безопасность;
 - ROADMAP.md — этапы;
 - deploy/README.md — установка и эксплуатация;
-- PROJECT_JOURNAL.md — неизменяемая история;
 - integrations/rezeis/ — runtime-интеграция Rezeis.
 
 ## Границы
