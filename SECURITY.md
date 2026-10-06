@@ -1,40 +1,43 @@
-# Remnawave Subscription Merge — Security
+# Безопасность
 
-## Secrets
+## Секреты
 
-Receive Remnawave credentials through environment variables or an external secret mechanism.
+Никогда не коммитьте Remnawave API token, Rezeis token, пароли, cookies, private keys, webhook secrets и реальные subscription URL.
 
-Never commit API tokens, passwords, webhook secrets, private keys, session cookies, or real subscription URLs containing credentials or private identifiers.
+## Remnawave
 
-Example configuration names may be documented, but example values must be placeholders.
+API token передаётся только через environment и не попадает в URL, логи, SQLite или клиентский ответ.
 
-## Logs
+## Rezeis
 
-Logs may contain request timing, upstream status, format selected, and non-sensitive correlation identifiers.
+Bearer-токен используется только во время административного запроса и не сохраняется. Браузер передаёт subscription ID и Telegram ID, а не произвольный configUrl.
 
-Logs must not contain authorization headers, API tokens, cookies, full private subscription URLs, full subscription bodies, or user secrets.
+## SSRF
 
-## Upstream requests
+Клиент не выбирает upstream. В A2 источник определяется Remnawave API. В Rezeis режиме configUrl получает сервер.
 
-- Use HTTPS in deployed environments.
-- Verify TLS certificates.
-- Set finite connect/read/request timeouts.
-- Enforce a finite maximum rendered subscription body size before parsing it.
-- Do not follow arbitrary redirects from untrusted sources.
-- Send only the required authorization material to the configured Remnawave endpoint.
+## CORS
 
-## Client endpoint
+Разрешён только origin из REZEIS_BASE_URL. Wildcard не используется.
 
-The merge endpoint is sensitive because possession of a valid subscription URL may grant access to the user's configuration. Do not expose debugging information in client errors or upstream credentials in response headers. Do not add endpoints that enumerate users or subscriptions.
+## Docker
 
-## SSRF boundary
+Публикуйте 18080 только на 127.0.0.1, используйте persistent volume, запускайте приложение не от root и завершайте HTTPS на reverse proxy.
 
-The Remnawave upstream target is configuration, not user input. The request handler must not accept an arbitrary upstream URL from the client.
+## Runtime addon
 
-## Error handling
+Addon изменяет только runtime-файлы Rezeis. Перед index.html создаётся backup. Официальный source не меняется.
 
-Return stable, minimal errors to clients. Keep detailed upstream diagnostics server-side and secret-safe.
+## Логи
 
-## Testing
+Не логируйте Authorization, cookies, токены, полные subscription URL и subscription bodies.
 
-Fixtures should use synthetic users, URLs, tokens, and subscription bodies. Any accidental secret exposure must be removed from active code/configuration and documented without recording the secret itself.
+## Fail closed
+
+При ошибке main, secondary, формате, лимите размера или merge сервис не отдаёт частичную конфигурацию.
+
+## Проверка перед public
+
+Перед публикацией проверьте всю Git history, workflow logs и attachments. Ищите случайно попавшие JWT, private keys, passwords и tokens.
+
+Если секрет попадал в историю, его необходимо отозвать и перевыпустить. Простого удаления строки недостаточно.
