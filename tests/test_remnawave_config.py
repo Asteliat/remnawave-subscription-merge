@@ -24,3 +24,9 @@ def test_environment_requires_token(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("REMNAWAVE_API_TOKEN", raising=False)
     with pytest.raises(ConfigurationError):
         RemnawaveConfig.from_env()
+
+
+def test_secondary_username_rejects_already_secondary_name() -> None:
+    config = RemnawaveConfig(base_url="https://panel.example", api_token="secret")
+    with pytest.raises(ValueError, match="secondary suffix"):
+        config.secondary_username("alice_addsub")
