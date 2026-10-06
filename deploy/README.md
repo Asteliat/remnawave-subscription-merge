@@ -55,4 +55,4 @@ Run the live A2 audit after changes affecting merge behavior.
 
 ## Reverse proxy
 
-If the client-facing endpoint must be exposed outside the host, put it behind an existing HTTPS reverse proxy and forward only the required subscription request headers. Do not expose port `18080` directly. TLS verification and the proxy's access/error logging must follow the project's security rules.
+If the client-facing endpoint must be exposed outside the host, put it behind an existing HTTPS reverse proxy and forward only the required subscription request headers. Do not expose port `18080` directly. A production-oriented Nginx template is provided at `deploy/nginx.conf.example`; adapt the hostname and certificate paths to the actual host. TLS verification and the proxy's access/error logging must follow the project's security rules.
