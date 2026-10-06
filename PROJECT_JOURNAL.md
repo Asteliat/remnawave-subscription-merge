@@ -472,3 +472,31 @@ HTTP stage: IMPLEMENTED AT CODE LEVEL, LIVE/CI VERIFIED: NO.
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+## 2026-10-06 — Entry 0007 — Automated CI foundation
+
+### Actions
+- Checked the repository for an existing GitHub Actions workflow; none existed on `dev`.
+- Added `.github/workflows/ci.yml` for Python 3.12, installing the runtime/test dependencies and running `pytest -q` on pushes to `dev` and pull requests.
+- Added initial HTTP `/healthz` test coverage.
+
+### Verification
+- The workflow file is committed, but GitHub has not yet returned a workflow run for the latest commit, so CI execution is NOT claimed passed.
+- No live Remnawave credentials were used.
+- No production Remnawave configuration or data was modified.
+
+### Changed files
+- `.github/workflows/ci.yml`
+- `tests/test_http_endpoint.py`
+- `PROJECT_JOURNAL.md` (append-only entry only)
+
+### Commits
+- `c00a84dc7fbe58b11953e88158786c16d3d22cd3` — CI workflow
+- `0f00c404355f55bc71387e27a5ff58fd8a0d94f5` — HTTP health test
+- Journal update commit follows.
+
+### Status
+Automated test infrastructure: ADDED, RUN NOT YET CONFIRMED.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
