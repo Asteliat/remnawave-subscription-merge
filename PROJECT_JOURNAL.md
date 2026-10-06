@@ -1452,3 +1452,66 @@ Pull the test assertion commit to the server, run the complete pytest suite, and
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+
+## 2026-10-06 — Entry 0027 — Fixed Base64 secondary name collision handling discovered by final live audit
+
+### Context
+The final live A2 audit reached the Base64 response for a2test01 and found that the merged body contained two distinct VLESS URIs but both URI fragments remained `#rrrrrr`. The secondary subscription was therefore present, but its client-facing name was not made collision-safe as it is in the verified Clash, Sing-box, and Xray JSON merge paths.
+
+The safe live diagnostic established:
+- decoded Base64 size: 520 bytes;
+- decoded lines: 2;
+- 2 VLESS URIs;
+- 2 SS URIs;
+- both VLESS lines had the fragment `#rrrrrr`;
+- the secondary fragment did not contain `[addsub]`.
+
+This was a real merge-semantic gap, not a transport or health failure. The earlier Base64 implementation only deduplicated exact URI strings and did not treat URI fragments as client-facing proxy names.
+
+### Root cause
+The Base64 branch of `merge_payloads()` previously performed only exact-entry deduplication:
+`main entries + secondary entries → dict.fromkeys(...)`.
+
+Unlike Clash, Sing-box, and Xray JSON, it had no collision handling for the human-readable URI fragment after `#`. When main and secondary contained different credentials/configuration but the same fragment, both remained named identically.
+
+### Fix
+Updated `src/merge.py` so the Base64 merge now:
+- preserves exact duplicate entries without creating a second copy;
+- extracts URI fragments safely with `urlsplit()`;
+- decodes percent-encoded fragments with `unquote()` for collision comparison;
+- deterministically renames a secondary colliding fragment using the existing `[addsub]`, `[addsub-2]`, ... naming policy;
+- rebuilds the URI with the renamed fragment while preserving scheme, authority, path, query, and fragment structure;
+- keeps entries without a fragment unchanged.
+
+### Regression test
+Added a unit test covering both VLESS and SS URI fragments. The test verifies that identical main/secondary names become:
+- `rrrrrr`;
+- `rrrrrr [addsub]`;
+- `other`;
+- `other [addsub]`.
+
+### Changed files
+- `src/merge.py`
+- `tests/test_merge.py`
+- `PROJECT_JOURNAL.md` (append-only entry only)
+
+### Commits
+- `5479f60b739751b9324d1549f8393379ca4b712b` — fix: rename colliding base64 subscription names
+- `043a3830f059341ea199b3cc24924d5d02e7f64f` — test: cover base64 secondary name collision
+- Journal update commit follows.
+
+### Verification status
+- Root cause: VERIFIED from live Base64 output and current source.
+- Fix: COMMITTED to GitHub `dev`.
+- Regression test: ADDED; server execution after this fix is PENDING.
+- Full A2 live audit: BLOCKED at Base64 before this fix and must be rerun from the synchronized server checkout.
+- Clash/Mihomo, Sing-box, and Xray JSON live merge behavior from Entry 0026 remains unchanged and previously verified.
+- No Remnawave Response Rule, user, subscription, node, quota, or database data was modified.
+- No secret values were recorded in the journal.
+
+### Next large stage
+Synchronize the server from `origin/dev`, run the full pytest suite, then rerun the complete live A2 audit. The Base64 check must now verify two distinct client-facing names while all other format, metadata, isolation, and error checks remain in scope.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
