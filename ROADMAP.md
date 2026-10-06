@@ -35,9 +35,19 @@ Connect client request, identity resolution, two upstream fetches, merge engine,
 
 Add unit tests, format fixtures, A2 isolation tests, upstream failure tests, malformed-response tests, metadata tests, and integration tests with a controlled fake upstream.
 
-## G — Containerization
+## G — Deployment hardening
 
-Add a minimal production image, non-root runtime, health endpoint, no unnecessary public port exposure, and reverse-proxy/network integration configuration.
+**In progress**
+
+- non-root systemd runtime;
+- restart-on-failure and boot persistence;
+- journald-based operational logs;
+- health endpoint verification;
+- no direct public exposure of port 18080;
+- deployment/update procedure;
+- reverse-proxy integration remains deployment-specific.
+
+Containerization is intentionally deferred until the host deployment is stable.
 
 ## H — Remnawave integration
 
