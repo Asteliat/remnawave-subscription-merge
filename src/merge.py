@@ -125,7 +125,13 @@ def _merge_clash(main: dict[str, Any], secondary: dict[str, Any]) -> dict[str, A
         for raw_group in secondary_groups:
             if not isinstance(raw_group, dict) or not raw_group.get("name"):
                 raise SubscriptionPayloadError("Clash proxy-group is missing name")
-            group = _replace_strings(deepcopy(raw_group), replacements)
+            group = deepcopy(raw_group)
+            group_proxies = group.get("proxies")
+            if isinstance(group_proxies, list):
+                group["proxies"] = [
+                    replacements.get(proxy, proxy) if isinstance(proxy, str) else proxy
+                    for proxy in group_proxies
+                ]
             name = str(group["name"])
             existing = groups_by_name.get(name)
             if existing is None:
