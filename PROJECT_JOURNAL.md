@@ -2192,3 +2192,54 @@ The next large audit block is the live client-facing deployment/reverse-proxy an
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+
+## 2026-10-06 — Entry 0037 — Production reverse-proxy and systemd hardening
+
+### Scope
+The production deployment audit moved from application merge behavior to the client-facing host boundary: systemd isolation, loopback exposure, reverse-proxy requirements, TLS, logging, and rollback.
+
+### Findings and changes
+1. The middleware service was already bound to `127.0.0.1:18080`, which prevents direct Internet exposure when the host firewall/listener configuration is correct.
+2. The systemd unit was strengthened with additional sandbox restrictions:
+   - `RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6`
+   - `PrivateDevices=true`
+   - `ProtectKernelTunables=true`
+   - `ProtectKernelModules=true`
+   - `ProtectControlGroups=true`
+   - `RestrictSUIDSGID=true`
+   - `LockPersonality=true`
+   - `RestrictNamespaces=true`
+   - `SystemCallArchitectures=native`
+3. Added `deploy/nginx.conf.example` as a concrete HTTPS reverse-proxy template. It:
+   - keeps the application on loopback;
+   - exposes only `/sub/`;
+   - returns 404 for public `/healthz` and unrelated paths;
+   - forwards only the client headers consumed by the application;
+   - disables request bodies;
+   - uses finite proxy connect/read/send timeouts;
+   - disables proxy caching for personalized subscription responses;
+   - documents TLS, logging, cutover checks, and rollback.
+4. Updated `deploy/README.md` to reference the reverse-proxy template.
+
+### Verification
+The configuration was reviewed statically against the application's actual listening address, endpoint paths, consumed headers, no-store behavior, and security requirements. No production host was modified by this repository stage.
+
+CI for the code/configuration commits is still pending at the time of this entry; this entry does not claim live-host verification.
+
+### Changed files
+- `deploy/remnawave-subscription-merge.service`
+- `deploy/nginx.conf.example`
+- `deploy/README.md`
+- `PROJECT_JOURNAL.md` — append-only entry.
+
+### Commits
+- `12004f11b6e5512b79fb9c91ba9f10d3bb295f50` — security: harden systemd sandbox
+- `4a3a18f3ba534232ee0fb89f6808f15542b300d1` — docs: add production nginx reverse proxy template
+- `24cee0aa8623b7e7413c29ea6aa927e6cf845691` — docs: link production reverse proxy template
+
+### Remaining production verification
+The next step is live-host verification: systemd health, loopback-only port binding, actual reverse-proxy/TLS behavior, real client compatibility, and a controlled rollback/recovery check. These require the deployed server rather than repository-only inspection.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
