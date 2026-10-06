@@ -2004,3 +2004,53 @@ Final production audit: **IN PROGRESS**.
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+
+## 2026-10-06 — Entry 0033 — Xray/Sing-box edge-case audit: secondary reference rewrite
+
+### Context
+The next final-audit block reviewed the already verified Xray and Sing-box merge semantics for reference integrity under tag collisions. The goal was to test an edge case that ordinary duplicate-tag tests do not cover: a secondary Sing-box outbound can reference another secondary outbound by tag.
+
+### Finding
+The Sing-box merge already renamed a colliding secondary tag, but the existing implementation did not rewrite references inside other secondary outbounds after that rename. This could leave a selector/urltest or similar outbound pointing at the old colliding tag.
+
+### Fix
+Updated src/merge.py so that, after secondary tags are resolved, the accumulated secondary tag replacements are applied recursively to the secondary outbound objects before they are appended to the merged configuration.
+
+This keeps the main configuration untouched while preserving internal references in the secondary configuration after collision renaming.
+
+### Automated coverage
+Added tests covering:
+- a secondary selector referencing a colliding secondary VLESS tag;
+- a secondary urltest outbound referencing the same colliding tag.
+
+Both cases verify that the reference is rewritten to the generated [addsub] tag.
+
+### Changed files
+- src/merge.py
+- tests/test_merge.py
+- PROJECT_JOURNAL.md — append-only entry only.
+
+### Commits
+- cd7a7ada7e762375a68049ff367c58710e019e97 — fix: rewrite secondary sing-box outbound references
+- 06ed345e97143e582d0f0c10e4394db47daba37f — test: cover sing-box duplicate reference rewrites
+- This journal update is committed separately below.
+
+### Verification status
+The implementation and tests are committed on dev. GitHub CI for the new commits has not yet been observed, so this edge-case block is IMPLEMENTED / CI PENDING, not yet CI-verified.
+
+### Remaining work
+Continue the final audit with:
+1. complete Xray/Sing-box edge-case review;
+2. live deployment/reverse-proxy configuration review;
+3. final client compatibility checks;
+4. rollback/release procedure;
+5. final production verdict.
+
+### Status
+Sing-box duplicate-reference hardening: IMPLEMENTED / COMMITTED.
+CI verification: PENDING.
+Final production audit: IN PROGRESS.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
