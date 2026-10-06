@@ -1302,3 +1302,49 @@ Synchronize the server from `origin/dev`, run the full test suite, restart the m
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+
+## 2026-10-06 — Entry 0025 — Fixed endpoint test doubles after suffix-contract regression
+
+### Context
+The first full server pytest run after Entry 0024 exposed a regression in three existing HTTP endpoint tests. The production endpoint now calls `RemnawaveSubscriptionClient.fetch_public(..., suffix=suffix)`, but three hand-written `FakeSubscriptions` test doubles still implemented the previous two-argument signature.
+
+### Observed failure
+The server suite reported:
+- **24 passed**;
+- **3 failed**;
+- **1 warning**.
+
+All three failures had the same cause:
+`TypeError: ...FakeSubscriptions.fetch_public() got an unexpected keyword argument 'suffix'`.
+
+The failures were:
+- `test_merged_subscription_success_forwards_client_headers`;
+- `test_profile_url_is_not_forwarded`;
+- `test_malformed_subscription_is_502`.
+
+This is a test-double contract mismatch, not evidence that the production `fetch_public` implementation or the new explicit routes are broken.
+
+### Fix
+Updated the three legacy `FakeSubscriptions.fetch_public` implementations in `tests/test_http_endpoint.py` to accept the new optional `suffix=""` argument. The normal-route tests explicitly assert that the default suffix remains empty where appropriate.
+
+The explicit `/json` and `/singbox` tests already used the new suffix-aware signature and were left intact.
+
+### Changed files
+- `tests/test_http_endpoint.py`
+
+### Commit
+- `9d99bfdcaa673a06a69d6b4a784fedf499e800a2` — test: align endpoint doubles with subscription suffix contract
+
+### Verification status
+- GitHub code change: COMMITTED.
+- Server re-run after this fix: PENDING.
+- Live `/json` and `/singbox` E2E: PENDING.
+- Remnawave configuration/data: unchanged.
+- No secrets added or committed.
+
+### Next large stage
+Pull the new commit to the server and rerun the complete pytest suite. If green, restart the middleware from the synchronized checkout and perform the live Xray JSON and Sing-box E2E checks for both A2 users.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
