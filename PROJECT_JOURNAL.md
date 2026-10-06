@@ -2137,3 +2137,58 @@ Final production audit: IN PROGRESS.
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+## 2026-10-06 — Entry 0036 — Clash reference boundary hardening and CI regression closure
+
+### Context
+The Xray/Sing-box/Clash edge-case audit continued after Entry 0035. Review of the Clash merge path found that secondary proxy-name replacements were still applied through a broad recursive string replacement to the entire proxy-group object.
+
+### Finding and fix
+A proxy name collision could therefore rewrite unrelated group metadata when that metadata happened to equal the colliding proxy name. For example, a secondary group named `proxy` could incorrectly become `proxy [addsub]` merely because a secondary proxy with the same name was renamed.
+
+The Clash merge path was narrowed so that collision replacements are applied only to the proxy-group `proxies` reference list. Group names and other configuration fields are preserved unchanged.
+
+### Automated coverage
+Added a regression test proving that:
+- a secondary group name equal to a colliding proxy name remains unchanged;
+- the actual proxy reference inside that group's `proxies` list is rewritten to the generated `[addsub]` name.
+
+### CI regression discovered and fixed
+While validating this block, GitHub Actions runs for the recent merge-hardening commits were inspected instead of assuming success. Runs 85–89 had failed during test collection because `tests/test_http_endpoint.py` contained a malformed oversized-response test block:
+- `_small_config` was incorrectly declared as an async test helper;
+- an `async with` statement was present in a synchronous test;
+- the streamed oversized-response test used the normal configuration instead of the deliberately small test limit;
+- required `httpx` and `pytest` imports were missing.
+
+This was a test-suite regression, not a runtime application failure. The test block was corrected and restored to explicit async tests with the 16-byte fixture limit.
+
+### Verification
+GitHub Actions CI run #90 for commit `7800fdbea42aa17677f8469ed0461f836d491001` completed successfully:
+- `pytest -q`: SUCCESS;
+- `pip-audit`: SUCCESS.
+
+This closes the previously pending automated verification for the recent response-size hardening and merge edge-case changes.
+
+### Changed files
+- `src/merge.py`
+- `tests/test_merge.py`
+- `tests/test_http_endpoint.py`
+- `PROJECT_JOURNAL.md` — append-only entry only.
+
+### Commits
+- `2fd8fe6737adc4dc9cc8d8e645d01bba52072712` — fix: narrow Clash proxy reference rewrites
+- `2cd38dc8e47df500be4b5f728b25d2a41fd07e70` — test: cover Clash reference rewrite boundaries
+- `7800fdbea42aa17677f8469ed0461f836d491001` — fix: restore async oversized subscription tests
+- CI run #90: `37507700818` — SUCCESS.
+
+### Status
+Clash reference rewrite boundary hardening: **IMPLEMENTED / CI VERIFIED**.
+Xray/Sing-box reference hardening from Entries 0033–0035: **CI VERIFIED by the repaired full test suite**.
+Subscription response-size hardening from Entry 0032: **CI VERIFIED, including pip-audit**.
+Final production audit: **IN PROGRESS**.
+
+### Remaining work
+The next large audit block is the live client-facing deployment/reverse-proxy and production rollout review, followed by final client compatibility and rollback/release verification. No production Remnawave data or configuration was changed in this stage.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
