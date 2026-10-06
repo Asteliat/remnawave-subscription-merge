@@ -1671,3 +1671,48 @@ A2 merge behavior is now verified end-to-end. The next work should be treated as
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+
+## 2026-10-06 — Entry 0029 — Began deployment hardening with systemd supervision
+
+### Context
+After Entry 0028 established a passing live A2 E2E audit across Base64, Clash/Mihomo, Sing-box, and Xray JSON, deployment hardening was started as a separate stage. The goal is to replace the temporary `nohup` process with a persistent, non-root service while keeping the middleware on loopback and leaving Remnawave unchanged.
+
+### Repository changes
+Added a production-oriented systemd unit template:
+- `deploy/remnawave-subscription-merge.service`
+- dedicated `remnawave-merge` user/group;
+- `Restart=on-failure` with a short restart delay;
+- boot persistence through `multi-user.target`;
+- loopback binding at `127.0.0.1:18080`;
+- environment loaded only from the local `.env` file;
+- no-new-privileges, private temporary directory, protected home/system, restrictive umask;
+- stdout/stderr intended for journald rather than an application log file.
+
+Added deployment documentation:
+- `deploy/README.md` with installation, permissions, service operations, update procedure, health check, and reverse-proxy boundary.
+- `.env.example` containing variable names and placeholders only.
+
+Updated:
+- `ROADMAP.md` to mark deployment hardening as in progress and defer containerization until host deployment is stable.
+
+### Safety decisions
+- The middleware remains intended for loopback-only operation; port 18080 must not be exposed directly.
+- No reverse-proxy configuration was invented or changed because the existing host proxy topology has not yet been inspected in this stage.
+- No Remnawave users, subscriptions, nodes, quotas, Response Rules, or database data were modified.
+- No API token or subscription credential was added to Git.
+
+### Commits
+- `253f762df6e8eacc81d56768a96bb41977141f20` — feat: add systemd service template
+- `101750262987fdd33b487db9e8225a86bebce2a4` — docs: add deployment hardening guide
+- `355024d7d0cabe270f739ed7692a59d180ea4060` — docs: add deployment environment example
+- `fb7a1da1370a7f36b155ba6fb870c95d27ce9ae8` — docs: update deployment hardening roadmap
+- This entry is the documentation commit for the stage.
+
+### Verification status
+Repository-side deployment artifacts are committed. Server-side installation and runtime verification are **PENDING**.
+
+The next action is to synchronize the server from `origin/dev`, inspect the current `.env` ownership/permissions without printing its contents, install the dedicated system user and systemd unit, start the service, verify status and `/healthz`, confirm only loopback port 18080 is listening, and then rerun the A2 live audit against the supervised process.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
