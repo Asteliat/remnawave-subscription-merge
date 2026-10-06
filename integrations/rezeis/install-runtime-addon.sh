@@ -28,35 +28,32 @@ if [ ! -f "$BACKUP" ]; then
 fi
 
 # Remove only a previous copy of our two tags, then inject the current copy.
-python3 - "$INDEX" "$MERGE_PUBLIC_URL" <<'PY'
-from pathlib import Path
-import html
-import sys
+node - "$INDEX" "$MERGE_PUBLIC_URL" <<'NODE'
+const fs = require("node:fs");
+const index = process.argv[2];
+const base = process.argv[3].replace(/\\/+$/, "");
+let text = fs.readFileSync(index, "utf8");
 
-index = Path(sys.argv[1])
-base = sys.argv[2].rstrip("/")
-text = index.read_text(encoding="utf-8")
+const start = "<!-- REMNAWAVE-SUBSCRIPTION-MERGE:START -->";
+const end = "<!-- REMNAWAVE-SUBSCRIPTION-MERGE:END -->";
+const block =
+  start +
+  "<script>window.__REMNAWAVE_MERGE_URL__=" + JSON.stringify(base) + ";</script>" +
+  '<script src="/rezeis-merge-addon.js"></script>' +
+  end;
 
-start = "<!-- REMNAWAVE-SUBSCRIPTION-MERGE:START -->"
-end = "<!-- REMNAWAVE-SUBSCRIPTION-MERGE:END -->"
-block = (
-    f"{start}"
-    f"<script>window.__REMNAWAVE_MERGE_URL__={html.escape(repr(base))};</script>"
-    f'<script src="/rezeis-merge-addon.js"></script>'
-    f"{end}"
-)
+while (text.includes(start) && text.includes(end)) {
+  const a = text.indexOf(start);
+  const b = text.indexOf(end, a) + end.length;
+  text = text.slice(0, a) + text.slice(b);
+}
 
-while start in text and end in text:
-    a = text.index(start)
-    b = text.index(end, a) + len(end)
-    text = text[:a] + text[b:]
-
-needle = "</head>"
-if needle not in text:
-    raise SystemExit("could not find </head> in Rezeis index.html")
-text = text.replace(needle, block + needle, 1)
-index.write_text(text, encoding="utf-8")
-PY
+if (!text.includes("</head>")) {
+  throw new Error("could not find </head> in Rezeis index.html");
+}
+text = text.replace("</head>", block + "</head>", 1);
+fs.writeFileSync(index, text, "utf8");
+NODE
 
 echo "Installed runtime Rezeis merge addon."
 echo "SPA: $INDEX"
