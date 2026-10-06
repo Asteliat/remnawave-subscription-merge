@@ -795,3 +795,46 @@ Full stage: still awaiting automated/live verification.
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+
+## 2026-10-06 — Entry 0014 — Collision-safety verification correction
+
+### Verification finding
+A repository-level review of the rendered-subscription merge exposed a functional risk that was not visible in the earlier synthetic tests: Remnawave can render identical proxy names/tags for two separate users when the same template/host remark is used.
+
+The previous merge policy treated duplicate names/tags as "main wins". That could silently discard the addsub connection, which is unacceptable for A2.
+
+### Correction
+- Clash/Mihomo duplicate proxy names are now renamed deterministically with an `[addsub]` suffix.
+- If a secondary proxy-group has the same name as a main group, its proxy references are merged into the existing main group.
+- JSON outbound tag collisions are renamed deterministically instead of silently discarded.
+- Added regression tests for duplicate Clash proxy names/group references and duplicate JSON tags.
+- Existing main-first ordering is preserved.
+
+### External documentation check
+Current Remnawave documentation confirms that client-facing responses include Mihomo/Clash, Base64, Xray JSON, and Sing-box families, and that response format can be selected by Subscription Response Rules. citeturn0search0turn0search2
+
+Remnawave's Xray JSON documentation also shows that generated host outbound tags may be used by selectors/balancers, so duplicate-tag handling cannot simply discard the secondary outbound. citeturn1search1
+
+### Changed files
+- src/merge.py
+- tests/test_merge.py
+- PROJECT_JOURNAL.md (append-only entry only)
+
+### Commits
+- 58f923f29fa1fac0a0b04f509c5ef83d2bc2fcf4 — fix: preserve colliding secondary proxy names
+- d46fc25dca31733db4c5e9f9457cda69ab2a4bc5 — test: cover colliding rendered proxy names
+- This journal update is committed separately below.
+
+### Verification status
+- Repository review: VERIFIED.
+- Collision regression coverage added: VERIFIED IN SOURCE.
+- GitHub Actions: no workflow run is currently exposed for the latest dev commits through the available GitHub workflow-run endpoint.
+- Live merged endpoint: NOT YET VERIFIED.
+- No Remnawave mutation performed.
+
+### Remaining required verification
+The next live check must request the public merged endpoint using the real test panel and verify that both main and addsub connections survive in each supported response family. Particular attention is required for JSON selectors/routing and Clash/Mihomo proxy-group membership.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
