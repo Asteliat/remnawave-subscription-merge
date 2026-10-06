@@ -2454,3 +2454,42 @@ The runtime overlay is deliberately outside the official source repositories. A 
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+
+## 2026-10-06 — Entry 0041 — Final source correction after integration verification
+
+### Finding
+The final source reread caught two integration-only issues before live deployment:
+1. `src/http_endpoint.py` still initialized the optional Rezeis integration from environment-dependent configuration at module import time.
+2. `integrations/rezeis/install-runtime-addon.sh` used the wrong `process.argv` positions for the Node heredoc.
+
+### Fix
+- The HTTP entry point now reads only the optional `MERGE_DATA_DIR` and `REZEIS_BASE_URL` values during application construction; the required Remnawave configuration remains loaded at request time, preserving the existing test/import behavior.
+- The runtime installer now reads the shell-provided index path and merge URL from the correct Node argument positions.
+
+### Verification
+- Re-read the resulting `src/http_endpoint.py`: `import os` is present and the optional integration no longer calls `RemnawaveConfig.from_env()` at module import.
+- Re-read the installer: the Node block now uses `process.argv[1]` for the index and `process.argv[2]` for the merge URL.
+- These corrections were made before any live container modification.
+- GitHub combined status still exposes no status entries for the current `dev` head, so CI success is not claimed.
+- Live Rezeis/Remnawave testing remains pending.
+
+### Changed files
+- `src/http_endpoint.py`
+- `integrations/rezeis/install-runtime-addon.sh`
+- `PROJECT_JOURNAL.md` — append-only entry only.
+
+### Commits
+- `efa5e86c7a22952c45c67ef92d7f9a25202ac596` — defer upstream config loading
+- `e66ab7357da11cea6ab245b3bfe7efa0e0facf6d` — installer argument correction
+- `fb0829e504c2543290826b31d094c791a7e137be` — add missing os import
+- `adf0039244a78b5c98f2098983a3f1037b9476be` — final installer argv correction
+
+### Status
+Rezeis selected-pair integration: **IMPLEMENTED / source-verified**.
+Official Rezeis/Reiwa repositories: **UNCHANGED**.
+Live integration: **PENDING**.
+CI: **PENDING / no status entries exposed**.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
