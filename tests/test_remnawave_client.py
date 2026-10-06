@@ -154,3 +154,49 @@ async def test_a2_pair_derives_secondary_from_main_username_and_rejects_same_id(
         "/api/users/by-username/alice",
         "/api/users/by-username/alice_addsub",
     ]
+
+
+@pytest.mark.asyncio
+async def test_get_user_by_short_uuid_uses_short_uuid_endpoint() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/users/by-short-uuid/main-a"
+        return httpx.Response(200, json={"response": {
+            "id": 1,
+            "username": "alice",
+            "shortUuid": "main-a",
+            "status": "ACTIVE",
+            "subscriptionUrl": "https://sub.example/main-a",
+        }})
+
+    async with RemnawaveClient(_config(), httpx.AsyncClient(transport=httpx.MockTransport(handler))) as users:
+        user = await users.get_user_by_short_uuid("main-a")
+
+    assert user.username == "alice"
+
+
+@pytest.mark.asyncio
+async def test_identifier_resolution_prefers_short_uuid_then_secondary_username() -> None:
+    requested: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested.append(request.url.path)
+        if request.url.path == "/api/users/by-short-uuid/main-a":
+            return httpx.Response(200, json={"response": {
+                "id": 1, "username": "alice", "shortUuid": "main-a",
+                "status": "ACTIVE", "subscriptionUrl": "https://sub.example/main-a",
+            }})
+        assert request.url.path == "/api/users/by-username/alice_addsub"
+        return httpx.Response(200, json={"response": {
+            "id": 2, "username": "alice_addsub", "shortUuid": "add-a",
+            "status": "ACTIVE", "subscriptionUrl": "https://sub.example/add-a",
+        }})
+
+    async with RemnawaveClient(_config(), httpx.AsyncClient(transport=httpx.MockTransport(handler))) as users:
+        main, secondary = await users.resolve_a2_pair_identifier("main-a")
+
+    assert main.username == "alice"
+    assert secondary.username == "alice_addsub"
+    assert requested == [
+        "/api/users/by-short-uuid/main-a",
+        "/api/users/by-username/alice_addsub",
+    ]
