@@ -1,96 +1,68 @@
-# Remnawave Subscription Merge — Architecture
+# Архитектура
 
-## Purpose
+## Назначение
 
-A small, stateless middleware for the A2 model: one visible/main Remnawave subscription plus one hidden, personal secondary subscription are presented to the client as one merged subscription.
+Remnawave Subscription Merge — отдельный middleware между клиентом и Remnawave. Remnawave остаётся источником истины и не изменяется.
 
-The middleware is not a replacement for Remnawave and does not modify Remnawave data.
+## A2
 
-## A2 invariants
+    main_username -> main_username_addsub
 
-1. Every user has an independent secondary subscription.
-2. Secondary subscriptions are never shared between users.
-3. The client-facing result represents one merged subscription.
-4. The main subscription remains the identity anchor.
-5. The mapping from main identity to secondary identity is deterministic.
-6. No application database is required by the initial design.
-7. Upstream Remnawave remains the source of truth.
+Поток: client -> main user -> personal secondary -> две public subscription URL -> parallel fetch -> format detect -> merge -> metadata -> merged subscription.
 
-Initial mapping candidate: `<main_username>` -> `<main_username>_addsub`.
+## Ручная пара Rezeis
 
-## Request flow
+    Rezeis Admin
+        |
+        v
+    Merge API
+        |
+        +--> проверить Bearer через Rezeis
+        +--> получить exact subscription
+        +--> получить configUrl
+        v
+    SQLite pair store
+        |
+        v
+    /sub/merge/<pair-id>
 
-```text
-Client
-  |
-  | GET merged subscription
-  v
-Merge HTTP endpoint
-  |
-  +--> resolve main subscription/user
-  +--> derive hidden personal subscription
-  +--> fetch main body
-  +--> fetch secondary body
-  +--> detect supported representation
-  +--> merge + deduplicate
-  +--> apply explicit metadata policy
-  v
-One client-facing response
-```
+SQLite используется только для ручных пар.
 
-## Boundaries
+## Компоненты
 
-Middleware owns request validation, deterministic A2 mapping, upstream orchestration, format detection, format-specific merging, safe deduplication, metadata policy, controlled errors, and secret-safe diagnostics.
+- src/http_endpoint.py — FastAPI endpoints и response;
+- src/remnawave/ — Remnawave client;
+- src/merge.py — merge engine;
+- src/metadata.py — subscription-userinfo;
+- src/pair_store.py — SQLite;
+- src/rezeis.py — Rezeis adapter;
+- src/merge_pairs.py — admin API.
 
-Remnawave owns users, subscriptions, quotas, nodes, source data, expiry, and access state.
+## Форматы
 
-Explicitly outside core scope: admin UI, billing, Telegram bot logic, HWID management, changes to Remnawave, general middleware orchestration, and unrelated analytics.
+Base64/URI, Clash/Mihomo, Sing-box и Xray.
 
-## Merge semantics
+Слияние выполняется по структуре формата, а не через слепное объединение произвольных JSON.
 
-### Base64 / URI
+## Безопасность
 
-Decode the subscription payload, normalize line-oriented entries, remove exact duplicates, preserve valid ordering, and re-encode for the client. Do not silently discard entries merely because they are not semantically understood.
+Upstream URL не приходит от клиента, есть timeout и size limit, TLS verification включён, partial merge не возвращается, Rezeis token не сохраняется, CORS разрешает только origin из REZEIS_BASE_URL.
 
-### Clash JSON
+## Deployment
 
-Merge supported proxy/configuration collections with deterministic duplicate handling. Preserve unrelated top-level fields according to an explicit schema policy rather than blindly overlaying JSON objects.
+    HTTPS reverse proxy
+            |
+            v
+    127.0.0.1:18080
+            |
+            v
+    Docker container
+       |          |
+       v          v
+    Remnawave  Rezeis
 
-### sing-box JSON
+SQLite pair store находится в persistent Docker volume.
 
-Merge supported outbound/node definitions while preserving required top-level semantics. Do not recursively merge arbitrary JSON.
+## Rezeis overlay
 
-### Unsupported or malformed data
-
-Return a controlled error. Never guess a format or return a partially merged configuration.
-
-## Metadata
-
-Body merging and HTTP metadata are separate concerns. The implementation must explicitly define and test `subscription-userinfo`, content type, content disposition, cache headers, upstream status handling, and response encoding. Conflicting upstream headers must not be copied blindly.
-
-## Statelessness
-
-The initial service keeps no per-user mapping database. Mapping is derived from the main subscription identity. If future Remnawave behavior proves this insufficient, persistent state requires a documented architecture change.
-
-## Failure model
-
-Fail closed: main failure, secondary failure, missing/expired secondary, malformed body, or unsupported format must not produce a partial merged subscription. No cross-user fallback is permitted.
-
-## Security model
-
-Remnawave credentials are environment/configuration inputs, never source-controlled. Secrets are never included in URLs, logs, test fixtures, or errors. Upstream TLS verification remains enabled. The endpoint exposes only the minimum required client information.
-
-
-## Optional explicit-pair integration
-
-The original deterministic A2 path remains unchanged and stateless. Rezeis integration adds
-a separate optional path for arbitrary operator-selected pairs:
-
-`Rezeis subscription IDs -> authenticated Rezeis user detail -> stored configUrl pair -> SQLite mapping -> merged client URL`.
-
-Only the mapping needed by the selected pair is persisted. The merge service never writes to
-Rezeis, never changes a Rezeis subscription, and never stores the Rezeis admin bearer token.
-The token is accepted only for the request and is revalidated by Rezeis.
-
-This persistence is deliberately isolated from the A2 core so enabling the integration does
-not turn the original username/shortUuid resolution path into a database-backed design.
+Официальные Rezeis/Reiwa repositories не изменяются. Runtime addon копируется через docker cp и подключается к уже собранному SPA. После пересоздания контейнера overlay устанавливается снова.
