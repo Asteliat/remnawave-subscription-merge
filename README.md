@@ -9,7 +9,7 @@ A user has:
 - one visible/main Remnawave subscription;
 - one hidden personal secondary subscription with its own traffic quota.
 
-The middleware combines both into one client-facing subscription response.
+The middleware combines both into one client-facing subscription response for the user's Telegram-bot flow.
 
 The secondary subscription is never shared between users, and Remnawave remains the source of truth.
 
@@ -21,7 +21,7 @@ Initial target formats:
 - Clash JSON;
 - sing-box JSON.
 
-The service intentionally does not modify Remnawave and does not include an admin panel, billing system, Telegram bot, HWID subsystem, or unrelated middleware features.
+The service intentionally does not modify Remnawave and does not contain unrelated Telegram-bot business logic, admin UI, billing system, HWID subsystem, or unrelated middleware features.
 
 ## Documentation
 
@@ -32,4 +32,4 @@ The service intentionally does not modify Remnawave and does not include an admi
 
 ## Current status
 
-Foundation is complete on the `dev` branch. Application code and real Remnawave integration are not yet claimed complete.
+Stage A foundation and the Stage B Remnawave access/merge foundation are implemented on the `dev` branch. Live credentials, production integration, HTTP client endpoint, and automated CI execution are not yet claimed complete.
