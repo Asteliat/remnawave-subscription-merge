@@ -1925,3 +1925,82 @@ Final production audit: **IN PROGRESS**.
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+
+
+## 2026-10-06 — Entry 0032 — Dependency/security hardening: bounded subscription responses
+
+### Context
+The final production audit continued with the dependency/security stage. The previously added CI action SHA pinning and `pip-audit` job remain present from the earlier security sub-block. During code review, a concrete runtime resource-exhaustion risk was confirmed in the public subscription fetch path: the middleware previously used `response.text` after a full upstream GET, with no application-level maximum response size.
+
+### Security finding and decision
+A Remnawave-rendered subscription is client-facing data and is parsed as Base64, YAML, or JSON after retrieval. An unexpectedly large upstream body could therefore consume excessive memory and parser resources.
+
+The implementation was changed to:
+- read the upstream response as a stream;
+- reject a declared `Content-Length` above the configured maximum before reading the body;
+- enforce the same maximum while consuming chunked/unknown-length responses;
+- decode and parse the body only after the size check has passed;
+- keep the existing finite HTTP timeout and no-redirect behavior.
+
+Default maximum:
+- `8 MiB` (`8388608` bytes).
+
+The limit is configurable through:
+- `REMNAWAVE_MAX_SUBSCRIPTION_BYTES`.
+
+A non-positive or non-integer configured value is rejected during configuration loading.
+
+### Automated coverage
+Added tests for both oversized-response paths:
+- declared `Content-Length` exceeding the limit;
+- streamed response exceeding the limit without relying on `Content-Length`.
+
+The tests use synthetic data and a small test-only limit; no production secret or real subscription body is used.
+
+### Documentation
+Updated:
+- `.env.example` with the new optional limit;
+- `SECURITY.md` with the response-size requirement;
+- `deploy/README.md` with the deployment configuration entry.
+
+### Changed files
+- `src/remnawave/config.py`
+- `src/remnawave/subscription.py`
+- `tests/test_http_endpoint.py`
+- `.env.example`
+- `SECURITY.md`
+- `deploy/README.md`
+- `PROJECT_JOURNAL.md` — this append-only entry.
+
+### Commits
+Sequential commits were created while preserving the append-only workflow:
+- `9eeb846f81e7d0245b3b2bb9f15174a1c2a8e748` — security: bound subscription response size
+- `76f62c6f0a8a8d3d40fa90c62bff3945aee0a197` — security: stream and cap subscription responses
+- `491ba1b039f8fe1b9e48d460ab9c649902cf1c8a` — test: cover oversized subscription responses
+- `3c11b04472993aa7ad4c1be8e60a4e94a06b52c5` — test: isolate oversized response fixture limit
+- `5699cee3bf8f39c2bf5083461560ebdf62a94125` — docs: document subscription response limit
+- `aaff178bee1942785a56e155daa754c3a9d0e29b` — docs: document subscription size hardening
+- `79d019ee969c5b84229888bb4b8a3efe92a654c5` — docs: document deployment response limit
+- This journal entry is committed separately below.
+
+### Verification status
+Repository changes are committed on `dev`. GitHub workflow lookup for the latest documentation commit had not yet returned a workflow run at the time of this entry, so CI execution of the new tests and `pip-audit` is **NOT YET VERIFIED** in this stage.
+
+The security implementation itself is present in the repository and the new tests are committed. The previous CI security job remains configured to run `pip-audit`.
+
+### Remaining work
+The dependency/security stage is not yet fully closed until the CI run is observed and checked. After that, continue the planned audit sequence with:
+1. Xray/Sing-box edge-case review;
+2. live deployment/reverse-proxy configuration review;
+3. final client compatibility checks;
+4. rollback/release procedure;
+5. final production verdict.
+
+### Status
+Subscription response-size hardening: **IMPLEMENTED / COMMITTED**.
+Automated CI verification of this hardening and `pip-audit`: **PENDING**.
+Final production audit: **IN PROGRESS**.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
