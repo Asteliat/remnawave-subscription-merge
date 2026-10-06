@@ -67,6 +67,12 @@ def test_clash_yaml_is_detected_as_yaml() -> None:
     assert detect_format(body) == "clash_yaml"
 
 
+def test_clash_duplicate_proxy_names_are_rejected_within_source() -> None:
+    duplicate = yaml.safe_dump({"proxies": [{"name": "proxy"}, {"name": "proxy"}]}, sort_keys=False)
+    with pytest.raises(SubscriptionPayloadError, match="duplicate name"):
+        merge_payloads(duplicate, yaml.safe_dump({"proxies": [{"name": "other"}]}, sort_keys=False))
+
+
 def test_clash_duplicate_proxy_names_are_renamed_and_group_is_extended() -> None:
     main = yaml.safe_dump({
         "proxies": [{"name": "rrrrrr", "server": "main"}],
@@ -81,6 +87,12 @@ def test_clash_duplicate_proxy_names_are_renamed_and_group_is_extended() -> None
     names = [item["name"] for item in result["proxies"]]
     assert names == ["rrrrrr", "rrrrrr [addsub]"]
     assert result["proxy-groups"][0]["proxies"] == ["rrrrrr", "rrrrrr [addsub]"]
+
+
+def test_json_duplicate_tags_are_rejected_within_source() -> None:
+    duplicate = json.dumps({"outbounds": [{"tag": "proxy", "type": "vless"}, {"tag": "proxy", "type": "vless"}]})
+    with pytest.raises(SubscriptionPayloadError, match="duplicate tag"):
+        merge_payloads(duplicate, json.dumps({"outbounds": [{"tag": "other", "type": "vless"}]}))
 
 
 def test_json_duplicate_tags_are_renamed() -> None:
@@ -114,6 +126,12 @@ def test_singbox_merge_preserves_single_selector_and_adds_secondary_vless() -> N
     assert content_type == "application/json"
     assert [x["tag"] for x in result["outbounds"]] == ["→ Remnawave", "direct", "proxy", "proxy [addsub]"]
     assert result["outbounds"][0]["outbounds"] == ["proxy", "proxy [addsub]"]
+
+
+def test_xray_duplicate_tags_are_rejected_within_source() -> None:
+    duplicate = json.dumps([{"outbounds": [{"tag": "proxy", "protocol": "vless"}, {"tag": "proxy", "protocol": "vless"}]}])
+    with pytest.raises(SubscriptionPayloadError, match="duplicate tag"):
+        merge_payloads(duplicate, json.dumps([{"outbounds": [{"tag": "other", "protocol": "vless"}]}]))
 
 
 def test_xray_json_list_merge_preserves_main_and_adds_secondary_node() -> None:
@@ -173,6 +191,15 @@ def test_singbox_duplicate_tag_rewrites_secondary_internal_reference() -> None:
     result = json.loads(body)
     selector = next(item for item in result["outbounds"] if item["tag"] == "selector")
     assert selector["outbounds"] == ["proxy [addsub]"]
+
+
+def test_singbox_duplicate_tag_does_not_rewrite_unrelated_string_fields() -> None:
+    main = json.dumps({"outbounds": [{"tag": "proxy", "type": "vless"}]})
+    secondary = json.dumps({"outbounds": [{"tag": "proxy", "type": "vless", "server": "proxy"}]})
+    body, _ = merge_payloads(main, secondary)
+    result = json.loads(body)
+    assert result["outbounds"][1]["tag"] == "proxy [addsub]"
+    assert result["outbounds"][1]["server"] == "proxy"
 
 
 def test_singbox_duplicate_tag_rewrites_nested_secondary_reference() -> None:
