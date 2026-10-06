@@ -1220,3 +1220,38 @@ Next gate: run the full local test suite, then perform controlled live JSON merg
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+
+## 2026-10-06 — Entry 0023 — Local full-suite verification after JSON merge implementation
+
+### Verification
+The full local pytest suite was executed in the project environment after the Sing-box and Xray JSON merge implementation from Entry 0022.
+
+### Result
+- **22 passed**;
+- **1 warning**;
+- execution time: **0.70s**;
+- no test failures occurred.
+
+The single warning is a Starlette deprecation warning from the installed test-client compatibility layer: using httpx with starlette.testclient is deprecated and httpx2 is recommended. This warning does not indicate a failure in the merge implementation.
+
+### Status
+- Existing Base64/Clash behavior: regression suite remains green.
+- Sing-box JSON merge tests: PASS.
+- Xray JSON detection/merge tests: PASS.
+- Full local suite: **VERIFIED — 22/22 PASS**.
+- GitHub Actions for these commits: still not claimed passed because the queried commit workflow-runs endpoint returned no runs.
+- Live middleware JSON E2E: **PENDING**.
+- Remnawave configuration/data: unchanged.
+
+### Next large stage
+Perform controlled live E2E through the running middleware using explicit Remnawave JSON endpoints (/singbox and /json) for both A2 users. Verify response status/content type, merged outbound topology, selector references, collision-safe tags, and per-user isolation without printing credentials. Also verify the middleware route/forwarding contract before any live configuration mutation.
+
+### Changed files
+- PROJECT_JOURNAL.md (append-only entry only)
+
+### Commit
+- This journal update is the final commit of this documentation stage.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
