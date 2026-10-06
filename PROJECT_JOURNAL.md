@@ -197,8 +197,7 @@ Files should only be added when useful, and their actual state must be recorded 
 Known target environment:
 - Remnawave Backend v3.4.4;
 - Remnawave Subscription Page v8.0.0;
-- PostgreSQL 16;
-- Valkey 9;
+- PostgreSQL 16;- Valkey 9;
 - Caddy reverse proxy.
 
 The middleware must treat the existing Remnawave installation as existing infrastructure and must not unnecessarily alter it.
@@ -398,7 +397,6 @@ The middleware will not blindly copy upstream headers. Subscription body merging
 - `src/merge.py`
 - `tests/test_merge.py`
 - `PROJECT_JOURNAL.md` (append-only entry only)
-
 ### Commits
 - `a244e9a4d9228d133bf3ead461a0ed7945271862` — protected subscription fetch and format detection
 - `328e45be4c61ae7489bd778368f012b910119992` — merge engine
@@ -597,8 +595,7 @@ A dedicated unused Remnawave test panel was supplied for live integration testin
 - Public documentation confirms Remnawave API-token authentication uses Authorization: Bearer and that API tokens are created in the panel API-token settings.
 - The live integration therefore remains UNVERIFIED from this environment.
 
-### Security note
-Because the full API token was pasted into chat, it should be treated as exposed. After the live test, revoke/delete that token and create a fresh least-privilege token for the eventual deployed middleware. Do not store a full-privilege token in source control.
+### Security noteBecause the full API token was pasted into chat, it should be treated as exposed. After the live test, revoke/delete that token and create a fresh least-privilege token for the eventual deployed middleware. Do not store a full-privilege token in source control.
 
 ### Next large stage
 Execute the same read-only preflight from an environment that can resolve and reach the test panel, then create two isolated A2 test users and verify:
@@ -798,7 +795,6 @@ Full stage: still awaiting automated/live verification.
 
 
 ## 2026-10-06 — Entry 0014 — Collision-safety verification correction
-
 ### Verification finding
 A repository-level review of the rendered-subscription merge exposed a functional risk that was not visible in the earlier synthetic tests: Remnawave can render identical proxy names/tags for two separate users when the same template/host remark is used.
 
@@ -997,8 +993,7 @@ The Base64 outputs for the two users have different SHA-256 fingerprints (`f758e
 
 ### Status
 User-Agent format selection: **LIVE VERIFIED** for Base64 and Clash YAML responses.
-Clash merged-content structural verification: **PENDING**.
-Live JSON-family verification: **PENDING** because the current Response Rules did not select JSON for the tested UAs.
+Clash merged-content structural verification: **PENDING**.Live JSON-family verification: **PENDING** because the current Response Rules did not select JSON for the tested UAs.
 
 ### Changed files
 - PROJECT_JOURNAL.md (append-only entry only)
@@ -1039,6 +1034,55 @@ Live JSON-family verification remains pending because the current Remnawave Resp
 
 ### Commit
 - This journal update is committed separately below.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
+
+
+## 2026-10-06 — Entry 0020 — Live Remnawave Response Rules inspection
+
+### Context
+The next live verification step was intentionally read-only: inspect the current Remnawave Subscription Response Rules before attempting any JSON-response configuration or merge test.
+
+### Verification
+The live GET /api/subscription-settings response was inspected successfully using the configured Remnawave API token. The token itself was not included in the output shared with the project.
+
+The current responseRules configuration contains six enabled rules, in this order:
+1. Browser Subscription — accept contains text/html → BROWSER.
+2. Mihomo Clients — User-Agent regex for Mihomo/Clash-family clients → MIHOMO.
+3. Stash (iOS, macOS) — User-Agent beginning with stash → STASH.
+4. Sing-box clients — User-Agent regex for SFA/SFI/SFM/SFT/Karing/Singbox → SINGBOX.
+5. Clash Core Clients — User-Agent beginning with clash → CLASH.
+6. Fallback Base64 — no conditions → XRAY_BASE64.
+
+All six rules are currently enabled. The Browser and Fallback Base64 rules are explicitly marked by Remnawave as system-critical and must not be deleted or disabled.
+
+The live configuration reports responseRules.version as 1. HWID settings are currently disabled (enabled: false); this was observed but was not modified.
+
+### Important conclusion
+The current live rules explain the earlier format-selection results: the tested Happ, sing-box, and v2rayN requests did not select a JSON response rule and therefore fell through to the Base64 fallback, while Clash/Mihomo requests selected YAML-producing rules.
+
+There is currently no rule in the inspected live configuration whose responseType is an explicit JSON/Xray JSON response. Therefore the next JSON E2E step must not guess a User-Agent or assume that sing-box automatically means JSON; the actual Remnawave rule contract must first be established safely.
+
+### Safety
+- No Response Rule was created, edited, reordered, enabled, or disabled.
+- No Remnawave user, subscription, node, quota, or database data was modified.
+- No secret/token value was recorded in the journal.
+- This was a read-only live configuration inspection.
+
+### Changed files
+- PROJECT_JOURNAL.md (append-only entry only)
+
+### Commit
+- Journal update commit follows.
+
+### Status
+Current live Response Rules: INSPECTED AND VERIFIED.
+JSON-family live response selection: NOT YET AVAILABLE THROUGH THE CURRENT RULE SET.
+JSON merge E2E: PENDING.
+
+### Next large stage
+Determine the safest supported way to obtain a live JSON subscription body without weakening or replacing the current critical fallback/browser rules. Then run a non-destructive JSON merge E2E and verify both A2 users, including selectors/routing where applicable.
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
