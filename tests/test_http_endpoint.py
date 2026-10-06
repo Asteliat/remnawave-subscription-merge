@@ -6,7 +6,7 @@ import src.http_endpoint as endpoint
 from src.http_endpoint import app
 from src.remnawave.client import RemnawaveUser
 from src.remnawave.config import RemnawaveConfig
-from src.remnawave.subscription import SubscriptionPayload
+from src.remnawave.subscription import RemnawaveSubscriptionClient, SubscriptionPayload, SubscriptionPayloadError
 
 
 def test_healthz() -> None:
@@ -27,7 +27,7 @@ def _payload(body: str, userinfo: str | None = None) -> SubscriptionPayload:
 
 def _config() -> RemnawaveConfig:
     return RemnawaveConfig(base_url="https://remna.test", api_token="test-token",
-                           timeout_seconds=5.0, secondary_suffix="_addsub")
+                           timeout_seconds=5.0, secondary_suffix="_addsub", max_subscription_bytes=16)
 
 
 def test_merged_subscription_success_forwards_client_headers(monkeypatch) -> None:
@@ -179,3 +179,26 @@ def test_explicit_singbox_suffix_is_forwarded_to_both_subscriptions(monkeypatch)
     response = TestClient(app).get("/sub/alice/singbox")
     assert response.status_code == 200
     assert [item[1] for item in seen] == ["singbox", "singbox"]
+
+
+
+@pytest.mark.asyncio
+async def test_public_subscription_rejects_oversized_content_length() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, headers={"content-length": "17"}, text="x" * 17)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        subscriptions = RemnawaveSubscriptionClient(_config(), client)
+        with pytest.raises(SubscriptionPayloadError, match="too large"):
+            await subscriptions.fetch_public("https://sub.example/alice")
+
+
+@pytest.mark.asyncio
+async def test_public_subscription_rejects_oversized_stream_without_content_length() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="x" * 17)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        subscriptions = RemnawaveSubscriptionClient(_config(), client)
+        with pytest.raises(SubscriptionPayloadError, match="too large"):
+            await subscriptions.fetch_public("https://sub.example/alice")
