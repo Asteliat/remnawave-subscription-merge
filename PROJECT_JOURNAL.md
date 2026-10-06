@@ -892,3 +892,44 @@ Proceed to live middleware startup and A2 end-to-end verification against the ex
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+
+## 2026-10-06 — Entry 0016 — Live middleware startup on loopback
+
+### Context
+The next live-verification step was to start the A2 middleware against the existing Remnawave test environment without exposing a public listener and without modifying Remnawave.
+
+### Initial startup issue
+The first startup attempt failed because the project virtual environment did not contain Uvicorn:
+```
+No module named uvicorn
+```
+The middleware itself imported successfully and the existing test suite had already passed. This was a deployment/runtime dependency gap, not an application-code failure.
+
+### Correction
+- Installed Uvicorn with its standard runtime extras into the project-local `.venv`.
+- Installed version: `uvicorn 0.54.0`.
+- The existing Python 3.12 environment was retained; system Python was not replaced.
+- Remnawave configuration was supplied through shell environment variables. The API token was entered interactively and was not recorded in the repository or journal.
+
+### Verification
+- Uvicorn reports CPython 3.12.15 on Linux.
+- Full local test suite: **22 passed, 1 warning** in 0.69s.
+- FastAPI middleware started successfully as PID `3304827`.
+- Listener is restricted to `127.0.0.1:18080`; no public port was opened.
+- `GET /healthz` returned HTTP 200 with `{"status":"ok"}`.
+- Uvicorn log confirms application startup completed successfully.
+- No Remnawave data, configuration, or services were modified.
+
+### Runtime state
+The middleware is currently running in the deployment shell session on loopback. The next step is real A2 end-to-end verification through `/sub/a2test01` and `/sub/a2test02`, including supported rendered formats, merged quota metadata, and cross-user isolation.
+
+### Changed files
+- PROJECT_JOURNAL.md (append-only entry only)
+
+### Commits
+- No application-code commit was created for the runtime-only Uvicorn installation.
+- This journal update is committed separately below.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
