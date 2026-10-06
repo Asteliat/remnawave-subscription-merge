@@ -933,3 +933,41 @@ The middleware is currently running in the deployment shell session on loopback.
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+
+## 2026-10-06 — Entry 0017 — Live A2 base64 end-to-end verification
+
+### Verification
+The running middleware was exercised against the live Remnawave test panel through the local loopback endpoint for both A2 main users:
+- `GET /sub/a2test01`
+- `GET /sub/a2test02`
+
+Both requests completed successfully with HTTP 200.
+
+### Observed result
+For each user:
+- response size: 696 bytes;
+- content type: `text/plain; charset=utf-8`;
+- decoded payload is Base64 containing exactly 2 URI lines;
+- `subscription-userinfo`: `upload=0;download=0;total=0;expire=1791903193`;
+- `Cache-Control: no-store` is present;
+- main response headers such as content-disposition, support-url and profile-title are preserved;
+- `profile-web-page-url` is not present in the merged response.
+
+The two URI lines demonstrate that the middleware is combining the main and personal secondary rendered subscriptions for each request. Because the Base64 payload itself was not printed, no credentials or proxy secrets were exposed in the terminal output.
+
+### Isolation observation
+The secondary username is not expected to appear literally in the rendered URI payload, so absence of the strings `a2test01_addsub` / `a2test02_addsub` is not evidence of missing secondary data. A stronger isolation check is required by inspecting only non-secret structural fingerprints of each merged payload and comparing the two users.
+
+### Status
+Live A2 Base64 path: **VERIFIED** for both test users.
+Full live A2 verification is **NOT YET COMPLETE**. JSON/sing-box/Xray and Clash/Mihomo rendering, stronger cross-user isolation evidence, and failure-path checks remain.
+
+### Changed files
+- PROJECT_JOURNAL.md (append-only entry only)
+
+### Commit
+- This journal update is committed separately below.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
