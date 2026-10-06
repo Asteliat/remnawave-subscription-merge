@@ -2344,3 +2344,113 @@ Live integration: PENDING.
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+
+## 2026-10-06 — Entry 0040 — Rezeis admin selected-pair integration
+
+### Scope
+Integrated the standalone merge middleware with the current Rezeis admin data model without modifying the official `dizzzable/rezeis` or `dizzzable/reiwa` repositories.
+
+### Repository findings
+- Rezeis is a unified NestJS + React admin application; its Docker image serves the SPA from `/app/web/`.
+- Existing `Subscription` rows are the correct source for the admin selector.
+- The Rezeis admin list endpoint is `GET /api/admin/subscriptions`.
+- A list item contains the stable local subscription id and user Telegram id, while the full user detail endpoint `GET /api/admin/users/:telegramId` exposes the subscription's stored `configUrl`.
+- The historical plan name is carried in `Subscription.planSnapshot`; Rezeis does not use a live relational `plan_id` for historical subscription display.
+- Reiwa is the user-facing cabinet/application and does not need to be changed for the admin-side pairing workflow. The generated merged URL is an ordinary client-facing subscription URL.
+
+### Implemented integration
+1. Added explicit operator-selected pairing support to the merge service.
+2. Added a small SQLite-backed `PairStore` outside Rezeis:
+   - stores main/secondary Rezeis subscription ids;
+   - stores the resolved upstream `configUrl` values;
+   - stores optional main/secondary display labels;
+   - does not store the Rezeis admin bearer token.
+3. Added a server-side Rezeis adapter:
+   - validates the current admin Bearer token against `/api/admin/auth/me`;
+   - resolves the selected user's subscription through Rezeis;
+   - reads the real stored `configUrl` instead of trusting a browser-supplied URL.
+4. Added merge administration API:
+   - `GET /api/admin/merge/pairs`
+   - `POST /api/admin/merge/pairs`
+   - `DELETE /api/admin/merge/pairs/:pairId`
+5. Added stable client-facing selected-pair routes:
+   - `/sub/merge/:pairId`
+   - `/sub/merge/:pairId/json`
+   - `/sub/merge/:pairId/singbox`
+6. Selected-pair rendering retains the existing hardened merge pipeline:
+   - concurrent upstream fetch;
+   - client header forwarding;
+   - response-size limits;
+   - Base64/URI, Clash, Sing-box and Xray handling;
+   - structured reference rewrites;
+   - merged `subscription-userinfo`;
+   - no-store response behavior.
+7. Added `integrations/rezeis/admin-addon.js` as a runtime-only admin overlay:
+   - adds **Слияние подписок**;
+   - shows existing Rezeis subscriptions;
+   - allows choosing one **Основная** and one **Подключаемая** subscription;
+   - creates the selected pair through the merge API;
+   - displays the resulting client URL.
+8. Added `integrations/rezeis/install-runtime-addon.sh`:
+   - intended for `docker cp` into the running Rezeis container;
+   - copies the addon into `/app/web/`;
+   - injects a small loader into the already-built `/app/web/index.html`;
+   - keeps a one-time backup of the original index;
+   - is repeatable after an official Rezeis update.
+9. No source files in `dizzzable/rezeis` or `dizzzable/reiwa` were changed.
+
+### Important deployment constraint
+The runtime overlay is deliberately outside the official source repositories. A Docker container filesystem is ephemeral: recreating/replacing the Rezeis container removes the copied addon and injected index. The integration therefore must be re-applied after a container replacement/update unless the operator separately chooses a host-side persistent overlay. This is intentional and matches the requested `docker cp` workflow.
+
+### Changed files
+- `src/pair_store.py`
+- `src/rezeis.py`
+- `src/merge_pairs.py`
+- `src/remnawave/config.py`
+- `src/http_endpoint.py`
+- `.env.example`
+- `README.md`
+- `ARCHITECTURE.md`
+- `tests/test_pair_store.py`
+- `integrations/rezeis/admin-addon.js`
+- `integrations/rezeis/install-runtime-addon.sh`
+- `PROJECT_JOURNAL.md` — append-only entry only.
+
+### Commits
+- `9fda2e2b572add98c1b242087c01601baa8a75c5` — add explicit pair persistence
+- `ec65ca0d1d0835ab1c01b17ecf6e888668876826` — add Rezeis API adapter
+- `2bafac6ffd74dbb399ddee0bf1b723cf57b1352e` — add selected-pair admin API
+- `de19dee73cdf318cde9e1f81a5dd4ff6bc57e2da` — add runtime Rezeis admin addon
+- `1012c6ec9a247aa3fc99d71be59a66b3eae874ac` — configure integration settings
+- `7e1f31645055b588c0c5480b4c318f4f93918709` — expose selected-pair subscription routes
+- `18e665685c942eec8f91cd7de227ffe47b13723a` — keep endpoint initialization test-safe
+- `d5ab5d50efddce0821204fc1172d86bb28f4fd03` — document integration environment
+- `fd8a87f86e2837bcb00fc340f171ae8dfb772840` — document Rezeis runtime integration
+- `b3874ea4921ac88d2bbf7f22b6f598a5bde77d56` — document explicit-pair architecture
+- `332d427fbf3b9f13e248b6404b6a5e050489db43` — add runtime installer
+- `0aae3519d5807687b8c27060e8e91ee8ec96eb96` — make installer Node-only
+- `466d929622cea6c1e720faf97be4921692074f5e` — correct installer argv handling
+- `3ff8d8e1effdac0817c3605a763d1a1017547a2b` — fail clearly when Rezeis integration is unconfigured
+- `c6d4676d82e07c7bc9034e27a91fee2929c8a6ad` — use Rezeis canonical admin token storage
+- `09f16f4a8c2ef06ee639875c3a437b12a781be79` — add pair-store tests
+
+### Verification status
+- Source-level integration was written to the `dev` branch.
+- Rezeis and Reiwa repositories were inspected; neither was modified.
+- The new pair-store unit tests were added.
+- Live Rezeis/Remnawave end-to-end testing is still pending.
+- GitHub CI for the newly added commits has not yet been independently confirmed green, so this entry does not claim CI success.
+- The runtime addon has not yet been copied into the live Rezeis container.
+
+### Next test stage
+1. Configure `REZEIS_BASE_URL` and `MERGE_DATA_DIR` for the merge service.
+2. Ensure the merge service has a reachable public URL for client subscriptions and admin AJAX.
+3. Copy `integrations/rezeis/` into the running Rezeis container.
+4. Run the installer with `MERGE_PUBLIC_URL`.
+5. Open **Слияние подписок**, select two real subscriptions, create a pair.
+6. Test the generated merged URL against the real Remnawave panel for Base64/URI, Clash, Sing-box and Xray.
+7. Verify that an admin without sufficient Rezeis permissions is rejected and that the Rezeis token is never persisted by the merge service.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
