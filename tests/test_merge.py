@@ -89,6 +89,23 @@ def test_clash_duplicate_proxy_names_are_renamed_and_group_is_extended() -> None
     assert result["proxy-groups"][0]["proxies"] == ["rrrrrr", "rrrrrr [addsub]"]
 
 
+def test_clash_proxy_collision_does_not_rename_unrelated_group_name() -> None:
+    main = yaml.safe_dump({
+        "proxies": [{"name": "proxy", "server": "main"}],
+        "proxy-groups": [{"name": "main", "type": "select", "proxies": ["proxy"]}],
+    }, sort_keys=False)
+    secondary = yaml.safe_dump({
+        "proxies": [{"name": "proxy", "server": "secondary"}],
+        "proxy-groups": [{"name": "proxy", "type": "select", "proxies": ["proxy"]}],
+    }, sort_keys=False)
+
+    body, _ = merge_payloads(main, secondary)
+    result = yaml.safe_load(body)
+
+    assert [group["name"] for group in result["proxy-groups"]] == ["main", "proxy"]
+    assert result["proxy-groups"][1]["proxies"] == ["proxy [addsub]"]
+
+
 def test_json_duplicate_tags_are_rejected_within_source() -> None:
     duplicate = json.dumps({"outbounds": [{"tag": "proxy", "type": "vless"}, {"tag": "proxy", "type": "vless"}]})
     with pytest.raises(SubscriptionPayloadError, match="duplicate tag"):
