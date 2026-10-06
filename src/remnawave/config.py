@@ -14,6 +14,7 @@ class RemnawaveConfig:
     api_token: str
     timeout_seconds: float = 10.0
     secondary_suffix: str = "_addsub"
+    max_subscription_bytes: int = 8 * 1024 * 1024
 
     @classmethod
     def from_env(cls) -> "RemnawaveConfig":
@@ -30,7 +31,21 @@ class RemnawaveConfig:
         if timeout <= 0:
             raise ConfigurationError("REMNAWAVE_TIMEOUT_SECONDS must be positive")
         suffix = os.getenv("REMNAWAVE_SECONDARY_SUFFIX", "_addsub")
-        return cls(base_url=base_url, api_token=token, timeout_seconds=timeout, secondary_suffix=suffix)
+        try:
+            max_subscription_bytes = int(
+                os.getenv("REMNAWAVE_MAX_SUBSCRIPTION_BYTES", str(8 * 1024 * 1024))
+            )
+        except ValueError as exc:
+            raise ConfigurationError("REMNAWAVE_MAX_SUBSCRIPTION_BYTES must be an integer") from exc
+        if max_subscription_bytes <= 0:
+            raise ConfigurationError("REMNAWAVE_MAX_SUBSCRIPTION_BYTES must be positive")
+        return cls(
+            base_url=base_url,
+            api_token=token,
+            timeout_seconds=timeout,
+            secondary_suffix=suffix,
+            max_subscription_bytes=max_subscription_bytes,
+        )
 
     def secondary_username(self, main_username: str) -> str:
         username = main_username.strip()
