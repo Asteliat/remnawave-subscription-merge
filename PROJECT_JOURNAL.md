@@ -761,3 +761,37 @@ Run the new middleware against the actual test panel and verify two A2 pairs end
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+
+## 2026-10-06 — Entry 0013 — YAML detection correction
+
+### Context
+During final review of Entry 0012 implementation, a format-detection bug was found before stage closure: Clash YAML was falling through the JSON detector and could be misclassified as base64/URI.
+
+### Correction
+- Added safe YAML parsing to the format detector.
+- Clash documents with a top-level proxies list are now classified as clash_yaml.
+- Added a regression test for Clash YAML detection.
+- Existing JSON and base64 detection behavior remains unchanged.
+
+### Changed files
+- src/remnawave/subscription.py
+- tests/test_merge.py
+- PROJECT_JOURNAL.md (append-only entry only)
+
+### Commit
+- 73e6f1b94496e5a652a2a0c5cfe43dfc27094474 — fix: detect Clash YAML subscriptions
+- c2ed4518f529a05835a68e0e547e9cf4aa81216e — test: cover Clash YAML detection
+- This journal update is committed separately below.
+
+### Verification
+- The bug was identified by repository-level code review before claiming the stage complete.
+- No live Remnawave data was modified.
+- Automated test execution and live merged-output verification remain pending.
+
+### Status
+YAML format detection: CORRECTED AND REGRESSION-COVERED.
+Full stage: still awaiting automated/live verification.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
