@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 import json
 from typing import Mapping
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 import yaml
@@ -29,21 +30,37 @@ class RemnawaveSubscriptionClient:
         self.config = config
         self._http = http_client
 
+    @staticmethod
+    def _with_suffix(subscription_url: str, suffix: str) -> str:
+        if not suffix:
+            return subscription_url
+        parts = urlsplit(subscription_url)
+        path = parts.path.rstrip("/") + f"/{suffix}"
+        return urlunsplit((parts.scheme, parts.netloc, path, parts.query, parts.fragment))
+
     @property
     def http_client(self) -> httpx.AsyncClient:
         if self._http is None:
             raise RuntimeError("RemnawaveSubscriptionClient requires an async HTTP client")
         return self._http
 
-    async def fetch_public(self, subscription_url: str, request_headers: Mapping[str, str] | None = None) -> SubscriptionPayload:
+    async def fetch_public(
+        self,
+        subscription_url: str,
+        request_headers: Mapping[str, str] | None = None,
+        suffix: str = "",
+    ) -> SubscriptionPayload:
         if not subscription_url.strip():
             raise ValueError("subscription_url must not be empty")
+        if suffix not in {"", "json", "singbox"}:
+            raise ValueError("unsupported subscription suffix")
+        url = self._with_suffix(subscription_url, suffix)
         headers = {
             key: value
             for key, value in (request_headers or {}).items()
             if key.lower() in {"user-agent", "x-hwid", "x-device-os", "x-ver-os", "x-device-model"}
         }
-        response = await self.http_client.get(subscription_url, headers=headers)
+        response = await self.http_client.get(url, headers=headers)
         if response.status_code == 404:
             raise SubscriptionPayloadError("subscription not found")
         if response.status_code >= 400:
