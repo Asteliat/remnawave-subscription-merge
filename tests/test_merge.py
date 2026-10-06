@@ -134,6 +134,27 @@ def test_xray_duplicate_tags_are_rejected_within_source() -> None:
         merge_payloads(duplicate, json.dumps([{"outbounds": [{"tag": "other", "protocol": "vless"}]}]))
 
 
+def test_xray_duplicate_tag_does_not_rewrite_unrelated_string_fields() -> None:
+    main = json.dumps([{"outbounds": [{"tag": "proxy", "protocol": "vless"}]}])
+    secondary = json.dumps([{"outbounds": [{"tag": "proxy", "protocol": "vless", "remarks": "proxy"}]}])
+    body, _ = merge_payloads(main, secondary)
+    result = json.loads(body)
+    assert result[0]["outbounds"][1]["tag"] == "proxy [addsub]"
+    assert result[0]["outbounds"][1]["remarks"] == "proxy"
+
+
+def test_xray_duplicate_tag_rewrites_known_reference_fields() -> None:
+    main = json.dumps([{"outbounds": [{"tag": "proxy", "protocol": "vless"}]}])
+    secondary = json.dumps([{
+        "outbounds": [{"tag": "proxy", "protocol": "vless"},
+                      {"tag": "wrapper", "protocol": "freedom", "settings": {"domainStrategy": "UseIP"}}],
+        "routing": {"rules": [{"outboundTag": "proxy"}]},
+    }])
+    body, _ = merge_payloads(main, secondary)
+    result = json.loads(body)
+    assert result[0]["routing"]["rules"][0]["outboundTag"] == "proxy [addsub]"
+
+
 def test_xray_json_list_merge_preserves_main_and_adds_secondary_node() -> None:
     main = json.dumps([{
         "dns": {},
