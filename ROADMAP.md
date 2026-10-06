@@ -15,29 +15,37 @@ This roadmap is intentionally limited to the A2 subscription-merge middleware.
 
 ## B — Remnawave access layer
 
-**Next**
+**Complete**
 
-Build a small upstream client with configurable Remnawave endpoint, credential injection through environment, user/subscription resolution, secondary subscription derivation, timeout and status handling, structured secret-safe errors, and mocked tests before real integration.
+Implemented configurable Remnawave endpoint, environment-injected credentials, user/subscription resolution, deterministic secondary derivation, timeout/status handling, structured secret-safe errors, and mocked client-contract tests.
 
 ## C — Merge engine
 
-Implement and test base64/URI, Clash JSON, sing-box JSON, deterministic deduplication, malformed/unsupported input handling, and metadata policy.
+**Complete**
+
+Base64/URI, Clash/Mihomo YAML, sing-box JSON, Xray JSON, deterministic deduplication/name collision handling, malformed/unsupported input handling, and explicit metadata policy are implemented and live-verified.
 
 ## D — A2 identity and isolation
 
-Prove two users map to two different secondary subscriptions, one user's secondary data can never enter another user's result, missing/expired secondary subscriptions fail safely, and duplicate nodes/configurations are deterministic.
+**Complete / verified**
+
+Per-user `_addsub` mapping and cross-user response isolation were verified with independent live test users. Missing-user failure is covered. No shared secondary subscription is used.
 
 ## E — HTTP endpoint
 
-Connect client request, identity resolution, two upstream fetches, merge engine, response body/metadata, and controlled failures.
+**Complete / verified**
+
+Client request headers, identity resolution, two upstream public-subscription fetches, merge engine, response metadata, explicit format routes, and controlled 502/504 failures are implemented and live-tested.
 
 ## F — Automated verification
 
-Add unit tests, format fixtures, A2 isolation tests, upstream failure tests, malformed-response tests, metadata tests, and integration tests with a controlled fake upstream.
+**Complete / verified**
+
+Unit/format/metadata/HTTP tests and controlled Remnawave client-contract tests are present. Full pytest has passed with 28 tests; CI run #63 on `dev` succeeded. Live A2 E2E verification also passed.
 
 ## G — Deployment hardening
 
-**In progress**
+**Complete / verified**
 
 - non-root systemd runtime;
 - restart-on-failure and boot persistence;
@@ -51,8 +59,12 @@ Containerization is intentionally deferred until the host deployment is stable.
 
 ## H — Remnawave integration
 
-Use controlled test users/subscriptions and verify independent quotas, merged configuration visibility, client compatibility, expiry behavior, and recovery after upstream failure. No destructive changes to existing Remnawave.
+**Partially complete / live verified**
+
+Controlled test users/subscriptions, independent A2 outputs, merged configuration visibility, response-rule-driven formats, and upstream failure handling are verified. Real client compatibility, expiry/recovery edge cases, and production reverse-proxy rollout remain.
 
 ## I — Final audit
 
-Before production status: full test suite, configuration/secret audit, dependency audit where available, container/build check, runtime check, Git history review, explicit limitations, and rollback procedure.
+**In progress**
+
+Repository/runtime audit is underway. Remaining gates are dependency/security review, production reverse-proxy design, final rollout/rollback procedure, and final live client compatibility checks.
