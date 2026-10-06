@@ -65,13 +65,16 @@ def detect_format(body: str) -> str:
     except json.JSONDecodeError:
         value = None
     else:
-        if not isinstance(value, dict):
-            raise SubscriptionPayloadError("JSON subscription must be an object")
-        if isinstance(value.get("proxies"), list):
-            return "clash_yaml"
-        if isinstance(value.get("outbounds"), list):
-            return "json_outbounds"
-        raise SubscriptionPayloadError("unsupported JSON subscription format")
+        if isinstance(value, dict):
+            if isinstance(value.get("proxies"), list):
+                return "clash_yaml"
+            if isinstance(value.get("outbounds"), list):
+                return "singbox_json"
+            raise SubscriptionPayloadError("unsupported JSON subscription format")
+        if isinstance(value, list):
+            if len(value) == 1 and isinstance(value[0], dict) and isinstance(value[0].get("outbounds"), list):
+                return "xray_json"
+            raise SubscriptionPayloadError("unsupported JSON subscription format")
 
     try:
         yaml_value = yaml.safe_load(text)
