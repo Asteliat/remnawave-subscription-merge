@@ -74,3 +74,66 @@ def test_json_duplicate_tags_are_renamed() -> None:
     body, _ = merge_payloads(main, secondary)
     result = json.loads(body)
     assert [item["tag"] for item in result["outbounds"]] == ["proxy", "proxy [addsub]"]
+
+
+def test_singbox_merge_preserves_single_selector_and_adds_secondary_vless() -> None:
+    main = json.dumps({
+        "dns": {"servers": [{"tag": "local", "type": "udp"}]},
+        "route": {"rules": [{"outbound": "direct"}]},
+        "inbounds": [{"tag": "tun-in"}],
+        "outbounds": [
+            {"tag": "→ Remnawave", "type": "selector", "outbounds": ["proxy"]},
+            {"tag": "direct", "type": "direct"},
+            {"tag": "proxy", "type": "vless", "server": "main"},
+        ],
+    })
+    secondary = json.dumps({
+        "outbounds": [
+            {"tag": "→ Remnawave", "type": "selector", "outbounds": ["proxy"]},
+            {"tag": "direct", "type": "direct"},
+            {"tag": "proxy", "type": "vless", "server": "secondary"},
+        ],
+    })
+    body, content_type = merge_payloads(main, secondary)
+    result = json.loads(body)
+    assert content_type == "application/json"
+    assert [x["tag"] for x in result["outbounds"]] == ["→ Remnawave", "direct", "proxy", "proxy [addsub]"]
+    assert result["outbounds"][0]["outbounds"] == ["proxy", "proxy [addsub]"]
+
+
+def test_xray_json_list_merge_preserves_main_and_adds_secondary_node() -> None:
+    main = json.dumps([{
+        "dns": {},
+        "routing": {"rules": [{"outboundTag": "direct"}]},
+        "inbounds": [{"tag": "socks"}],
+        "outbounds": [
+            {"tag": "direct", "protocol": "freedom"},
+            {"tag": "block", "protocol": "blackhole"},
+            {"tag": "proxy", "protocol": "vless", "settings": {"vnext": [{"address": "main"}]},
+             "streamSettings": {"network": "xhttp"}},
+        ],
+        "remarks": "main",
+    }])
+    secondary = json.dumps([{
+        "dns": {},
+        "routing": {"rules": [{"outboundTag": "direct"}]},
+        "inbounds": [{"tag": "socks"}],
+        "outbounds": [
+            {"tag": "direct", "protocol": "freedom"},
+            {"tag": "block", "protocol": "blackhole"},
+            {"tag": "proxy", "protocol": "vless", "settings": {"vnext": [{"address": "secondary"}]},
+             "streamSettings": {"network": "xhttp"}},
+        ],
+        "remarks": "secondary",
+    }])
+    body, content_type = merge_payloads(main, secondary)
+    result = json.loads(body)
+    assert content_type == "application/json"
+    assert len(result) == 1
+    assert [x["tag"] for x in result[0]["outbounds"]] == ["direct", "block", "proxy", "proxy [addsub]"]
+    assert result[0]["remarks"] == "main"
+
+
+def test_detect_xray_json_list() -> None:
+    body = json.dumps([{"outbounds": [{"tag": "direct", "protocol": "freedom"}]}])
+    assert detect_format(body) == "xray_json"
