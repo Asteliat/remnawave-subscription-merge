@@ -4,7 +4,7 @@ import base64
 import binascii
 import json
 from copy import deepcopy
-from urllib.parse import unquote, urlsplit, urlunsplit
+from urllib.parse import quote, unquote, urlsplit, urlunsplit
 from typing import Any
 
 import yaml
@@ -334,8 +334,13 @@ def merge_payloads(main: str, secondary: str, secondary_label: str = "") -> tupl
             if secondary_label.strip():
                 parts = urlsplit(entry)
                 fragment = unquote(parts.fragment) if parts.fragment else ""
-                labeled = _secondary_name(fragment, secondary_label) if fragment else secondary_label.strip()
-                renamed = urlunsplit((parts.scheme, parts.netloc, parts.path, parts.query, labeled))
+                desired = _secondary_name(fragment, secondary_label) if fragment else secondary_label.strip()
+                name = desired
+                if name in used_names:
+                    name = _unique_name(name, used_names)
+                renamed = urlunsplit(
+                    (parts.scheme, parts.netloc, parts.path, parts.query, quote(name, safe="-._~"))
+                )
             else:
                 renamed, name = _rename_base64_entry(entry, used_names)
             merged.append(renamed)
