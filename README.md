@@ -50,4 +50,4 @@ The service intentionally does not modify Remnawave and does not contain unrelat
 
 ## Current status
 
-The A2 access/merge foundation and the corrected public-subscription integration are implemented on dev. Live end-to-end merged output and automated CI execution remain to be verified.
+The A2 access/merge foundation, corrected public-subscription integration, and host-level deployment hardening are implemented on `dev`. Live end-to-end output, cross-user isolation, systemd supervision, and automated CI have been verified. Final production exposure through a reverse proxy remains deployment-specific.
