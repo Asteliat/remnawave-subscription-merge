@@ -5,6 +5,8 @@ import os
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
+from urllib.parse import urlsplit
 
 from src.merge import merge_payloads
 from src.metadata import merge_userinfo
@@ -34,6 +36,20 @@ _rezeis_client = RezeisClient(
     10.0,
 )
 app.include_router(build_router(_pair_store, _rezeis_client))
+
+_rezeis_origin = ""
+if os.getenv("REZEIS_BASE_URL", "").strip():
+    parts = urlsplit(os.getenv("REZEIS_BASE_URL", "").strip())
+    if parts.scheme and parts.netloc:
+        _rezeis_origin = f"{parts.scheme}://{parts.netloc}"
+if _rezeis_origin:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[_rezeis_origin],
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type"],
+    )
 
 
 @app.get("/healthz")
