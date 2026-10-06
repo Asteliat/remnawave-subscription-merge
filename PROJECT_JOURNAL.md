@@ -371,3 +371,42 @@ Stage B: IN PROGRESS. Identity/access foundation is implemented; live integratio
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+## 2026-10-06 — Entry 0004 — Stage B subscription retrieval and merge engine
+
+### Actions
+- Added protected raw subscription retrieval through Remnawave's `GET /api/subscriptions/by-short-uuid/{shortUuid}/raw` endpoint.
+- Added subscription payload validation and deterministic format detection.
+- Added merge support for base64/URI line subscriptions with exact-entry deduplication.
+- Added Clash JSON merging of `proxies` and compatible `proxy-groups`, preserving the main subscription's unrelated top-level configuration.
+- Added sing-box JSON merging of `outbounds` by unique `tag`, preserving the main subscription's unrelated top-level configuration.
+- Added fail-closed behavior for malformed payloads, unsupported JSON, and mismatched formats.
+- Added tests covering deduplication, main-side precedence, format mismatch, and unsupported payloads.
+
+### Metadata decision
+The middleware will not blindly copy upstream headers. Subscription body merging and HTTP metadata remain separate. In particular, `subscription-userinfo` cannot safely be produced by concatenating two upstream headers; the actual Remnawave-enforced quotas remain authoritative and the final policy will be tested explicitly in the HTTP endpoint stage.
+
+### Verification
+- Repository state was re-read from `dev` before journal modification.
+- Remnawave v3.4.4 documentation confirms the protected raw subscription route and the public subscription routes. citeturn0search0
+- No live credentials or production subscriptions were used.
+- No Remnawave data was mutated.
+- Automated execution of the new test suite is still pending a repository test runner/CI execution; therefore tests are recorded as added, not as passed.
+
+### Changed files
+- `src/remnawave/subscription.py`
+- `src/merge.py`
+- `tests/test_merge.py`
+- `PROJECT_JOURNAL.md` (append-only entry only)
+
+### Commits
+- `a244e9a4d9228d133bf3ead461a0ed7945271862` — protected subscription fetch and format detection
+- `328e45be4c61ae7489bd778368f012b910119992` — merge engine
+- `fe7c0b5af6a0a4d95c0e0ac27347650709307427` — merge tests
+- Journal update commit follows.
+
+### Status
+Stage B — access layer + subscription retrieval + core merge engine: IMPLEMENTED, but live integration and automated execution remain pending.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
