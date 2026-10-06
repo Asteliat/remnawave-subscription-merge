@@ -1,83 +1,119 @@
 # Remnawave Subscription Merge
 
-Minimal stateless middleware for the A2 use case.
+Отдельный middleware для Remnawave, который объединяет две подписки в одну клиентскую подписку.
 
-## What it does
+Проект работает независимо от Remnawave, Rezeis и Reiwa и не изменяет их исходный код.
 
-A user has:
+## Возможности
 
-- one visible/main Remnawave subscription;
-- one hidden personal secondary subscription with its own traffic quota.
+- Base64/URI, Clash/Mihomo, Sing-box и Xray;
+- параллельное получение двух upstream-подписок;
+- дедупликация и безопасное переименование конфликтующих узлов;
+- переписывание структурированных ссылок после переименования;
+- объединение subscription-userinfo;
+- лимит размера upstream-ответа;
+- передача необходимых клиентских заголовков;
+- fail-closed: при ошибке одной подписки частичный результат не возвращается.
 
-The middleware combines both into one client-facing subscription response for the user's Telegram-bot flow.
+## Два режима
 
-The secondary subscription is never shared between users, and Remnawave remains the source of truth.
+### A2
 
-## Remnawave integration
+Основная подписка пользователя автоматически связывается с его личной secondary-подпиской: main_username -> main_username_addsub. Суффикс настраивается через REMNAWAVE_SECONDARY_SUFFIX. Secondary-подписка не является общей для пользователей.
 
-The protected raw subscription API is an internal Remnawave DTO. The middleware does not treat that DTO as a client-facing profile.
+### Ручная пара через Rezeis
 
-Instead it:
+В админке Rezeis появляется раздел «Слияние подписок». Администратор выбирает основную и подключаемую подписку. Merge-сервис проверяет Rezeis Bearer-токен, сам получает реальные configUrl и сохраняет пару в отдельном SQLite.
 
-1. resolves the main user and deterministic secondary user through the authenticated API;
-2. fetches both users' public subscription URLs;
-3. forwards the client User-Agent and HWID/device headers to both upstream subscriptions;
-4. lets Remnawave's subscription response rules render the client format;
-5. merges the two rendered bodies and their subscription-userinfo metadata.
+Официальные репозитории Rezeis/Reiwa не меняются.
 
-Remnawave's public subscription protocol supports base64 URI, Xray/sing-box JSON, and Clash/Mihomo YAML selected by client request headers or explicit format suffixes. citeturn0search0turn0search1
+## Установка на сервер
 
-## Metadata
+Рекомендуемый вариант — Docker.
 
-subscription-userinfo is merged explicitly:
+    git clone -b dev https://github.com/Asteliat/remnawave-subscription-merge.git
+    cd remnawave-subscription-merge
+    sudo bash deploy/install.sh
 
-- download/upload are summed;
-- expiry is the later expiry;
-- total=0 remains unlimited if either subscription is unlimited.
+Установщик проверяет Debian/Ubuntu, устанавливает Docker при необходимости, создаёт /opt/remnawave-subscription-merge, защищённый .env, постоянное хранилище и запускает контейнер.
 
-The upstream profile-web-page-url is deliberately not forwarded because it identifies one individual subscription rather than the merged endpoint.
+После установки:
 
-## Scope
+    curl -fsS http://127.0.0.1:18080/healthz
+    docker compose -f /opt/remnawave-subscription-merge/deploy/docker-compose.yml ps
 
-The service intentionally does not modify Remnawave and does not contain unrelated Telegram-bot business logic, admin UI, billing system, HWID subsystem, or unrelated middleware features.
+Порт слушает только localhost. Наружу сервис публикуется через существующий HTTPS reverse proxy.
 
-## Documentation
+## Ручной Docker-запуск
 
-- PROJECT_JOURNAL.md — immutable append-only project history;
-- ARCHITECTURE.md — data flow and merge semantics;
-- ROADMAP.md — implementation stages;
-- SECURITY.md — secret and endpoint security rules.
+    cp .env.example .env
+    nano .env
+    docker compose -f deploy/docker-compose.yml up -d --build
 
-## Current status
+Обязательные переменные:
 
-The A2 access/merge foundation, corrected public-subscription integration, and host-level deployment hardening are implemented on `dev`. Live end-to-end output, cross-user isolation, systemd supervision, and automated CI have been verified. Final production exposure through a reverse proxy remains deployment-specific.
+    REMNAWAVE_API_URL=https://panel.example.com
+    REMNAWAVE_API_TOKEN=...
 
+Для Rezeis:
 
-## Rezeis admin integration
+    REZEIS_BASE_URL=https://rezeis.example.com
+    MERGE_DATA_DIR=/var/lib/remnawave-subscription-merge
 
-The optional runtime integration adds explicit operator-selected subscription pairs without
-changing the Rezeis or Reiwa source repositories.
+## Rezeis runtime-addon
 
-Flow:
+Addon специально устанавливается в работающий контейнер через docker cp, а не в официальный исходный код:
 
-1. Rezeis admin lists the existing subscriptions from `GET /api/admin/subscriptions`.
-2. The injected runtime addon adds **Слияние подписок** to the admin UI.
-3. The operator selects one **Основная** and one **Подключаемая** subscription.
-4. The addon sends only the Rezeis subscription IDs and user Telegram IDs.
-5. The merge service validates the current Rezeis Bearer token against `/api/admin/auth/me`.
-6. The merge service resolves both selected rows through Rezeis user detail and reads their stored `configUrl`.
-7. The pair is stored in the merge service's own SQLite file, outside Rezeis.
-8. The service returns a stable client URL such as `/sub/merge/<pair-id>`.
+    docker cp integrations/rezeis rezeis:/opt/remnawave-merge
+    docker exec rezeis sh -lc 'chmod +x /opt/remnawave-merge/install-runtime-addon.sh && MERGE_PUBLIC_URL="https://merge.example.com" /opt/remnawave-merge/install-runtime-addon.sh'
 
-The runtime addon lives at `integrations/rezeis/admin-addon.js`. It is intentionally an
-overlay artifact: copy it into the running Rezeis container and inject it into the already
-served SPA shell. Do not commit it into the official Rezeis/Reiwa repositories.
+По умолчанию addon устанавливается в /app/web. После пересоздания контейнера Rezeis runtime-overlay исчезает и его нужно применить повторно.
 
-Required integration settings:
+## Основные endpoints
 
-- `REZEIS_BASE_URL` — Rezeis admin base URL.
-- `MERGE_DATA_DIR` — persistent directory for selected pair mappings.
-- The normal `REMNAWAVE_*` settings remain required for the middleware itself.
+A2:
 
-The selected-pair path preserves the existing client header forwarding, parallel upstream
-fetch, response-size limits, subscription-userinfo merge, and format-specific merge logic.
+    GET /sub/{identifier}
+    GET /sub/{identifier}/json
+    GET /sub/{identifier}/singbox
+
+Ручные пары:
+
+    GET    /sub/merge/{pair_id}
+    GET    /sub/merge/{pair_id}/json
+    GET    /sub/merge/{pair_id}/singbox
+    GET    /api/admin/merge/pairs
+    POST   /api/admin/merge/pairs
+    DELETE /api/admin/merge/pairs/{pair_id}
+
+## Обновление
+
+    cd /opt/remnawave-subscription-merge
+    git fetch origin dev
+    git reset --hard origin/dev
+    docker compose -f deploy/docker-compose.yml up -d --build
+    curl -fsS http://127.0.0.1:18080/healthz
+
+## Проверка
+
+    python -m pytest -q
+    pip-audit
+
+GitHub Actions запускает эти проверки для dev и pull request.
+
+## Документация
+
+- ARCHITECTURE.md — архитектура;
+- SECURITY.md — безопасность;
+- ROADMAP.md — этапы;
+- deploy/README.md — установка и эксплуатация;
+- PROJECT_JOURNAL.md — неизменяемая история;
+- integrations/rezeis/ — runtime-интеграция Rezeis.
+
+## Границы
+
+Проект не является заменой Remnawave, Rezeis или Reiwa и не добавляет Telegram-бот, биллинг, HWID или пользовательскую CRM.
+
+Его задача: получить две подписки и отдать клиенту одну объединённую подписку.
+
+Перед публичным релизом обязательно проверьте Git history и отозвите любой секрет, если он когда-либо попадал в commits.
