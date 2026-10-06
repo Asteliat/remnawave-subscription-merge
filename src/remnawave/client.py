@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -53,6 +54,7 @@ class RemnawaveClient:
     def __init__(self, config: RemnawaveConfig, http_client: httpx.AsyncClient | None = None) -> None:
         self.config = config
         self._http = http_client
+        self._owns_http = http_client is None
 
     async def __aenter__(self) -> "RemnawaveClient":
         if self._http is None:
@@ -60,17 +62,18 @@ class RemnawaveClient:
         return self
 
     async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
-        if self._http is not None:
+        if self._http is not None and self._owns_http:
             await self._http.aclose()
             self._http = None
 
-    def _client(self) -> httpx.AsyncClient:
+    @property
+    def http_client(self) -> httpx.AsyncClient:
         if self._http is None:
             raise RuntimeError("RemnawaveClient must be used as an async context manager")
         return self._http
 
     async def _get_json(self, path: str) -> dict[str, Any]:
-        response = await self._client().get(
+        response = await self.http_client.get(
             f"{self.config.base_url}{path}",
             headers={"Authorization": f"Bearer {self.config.api_token}"},
         )
@@ -89,7 +92,8 @@ class RemnawaveClient:
     async def get_user_by_username(self, username: str) -> RemnawaveUser:
         if not username.strip():
             raise ValueError("username must not be empty")
-        payload = await self._get_json(f"/api/users/by-username/{httpx.URL(username).raw_path.decode()}")
+        encoded_username = quote(username, safe="")
+        payload = await self._get_json(f"/api/users/by-username/{encoded_username}")
         return RemnawaveUser.from_response(payload)
 
     async def resolve_a2_pair(self, main_username: str) -> tuple[RemnawaveUser, RemnawaveUser]:
