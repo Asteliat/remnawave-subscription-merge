@@ -16,6 +16,8 @@ class RemnawaveConfig:
     secondary_suffix: str = "_addsub"
     max_subscription_bytes: int = 8 * 1024 * 1024
     secondary_label: str = ""
+    rezeis_base_url: str = ""
+    merge_data_dir: str = "/var/lib/remnawave-subscription-merge"
 
     @classmethod
     def from_env(cls) -> "RemnawaveConfig":
@@ -49,6 +51,8 @@ class RemnawaveConfig:
             secondary_suffix=suffix,
             max_subscription_bytes=max_subscription_bytes,
             secondary_label=os.getenv("REMNAWAVE_SECONDARY_LABEL", "").strip(),
+            rezeis_base_url=os.getenv("REZEIS_BASE_URL", "").strip().rstrip("/"),
+            merge_data_dir=os.getenv("MERGE_DATA_DIR", "/var/lib/remnawave-subscription-merge").strip(),
         )
 
     def secondary_username(self, main_username: str) -> str:
