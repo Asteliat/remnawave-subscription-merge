@@ -838,3 +838,57 @@ The next live check must request the public merged endpoint using the real test 
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+## 2026-10-06 — Entry 0015 — Local Python 3.12 environment and full test-suite verification
+
+### Context
+The live A2 middleware repository was prepared for local verification on the deployment server. Ubuntu 22.04.5 LTS provides Python 3.10 as the system interpreter, while the project requires Python >=3.12.
+
+### Environment preparation
+- Installed Python 3.12 separately for this project without replacing or modifying the system Python 3.10.
+- Created the project-local virtual environment at `.venv/`.
+- Installed the project and its test dependencies from `pyproject.toml`.
+- Added `*.egg-info/` to `.gitignore` so local editable installation artifacts remain untracked.
+
+### Verification and corrections
+The first local pytest run successfully started under Python 3.12 but exposed six failures:
+- four HTTP endpoint tests used fake Remnawave clients whose constructor no longer matched the production `RemnawaveClient(config)` contract;
+- two merge tests still expected the previous collision-discard behavior, while the current collision-safe implementation intentionally preserves the secondary item using the deterministic `[addsub]` suffix.
+
+The test suite was corrected to match the current implementation contract. During the first GitHub update of the HTTP test file, escaped newline literals were accidentally written as physical newlines inside Python byte strings, causing a SyntaxError during collection. This command-construction/write error was immediately corrected in a follow-up commit.
+
+### Final verification
+On the deployment server:
+- repository fast-forwarded from `ba5eb5d` to `a1cf10c`;
+- local Python interpreter: Python 3.12;
+- `pytest -q`: **22 passed, 1 warning** in 0.71s;
+- working tree: clean;
+- HEAD: `a1cf10c` — `test: fix escaped newline literals`.
+
+The remaining warning is Starlette's deprecation warning regarding its current TestClient/httpx integration; it does not fail the suite.
+
+No Remnawave data, configuration, Docker volumes, or production services were modified during this verification stage.
+
+### Changed files
+- `.gitignore`
+- `tests/test_http_endpoint.py`
+- `tests/test_merge.py`
+- `PROJECT_JOURNAL.md` (append-only entry only)
+
+### Commits
+- `840e11b12408b551728c020b28c2b653ddf49699` — `chore: ignore local egg-info artifacts`
+- `a1cf10cf727dde8a6293fc6312f3518f605a3601` — `test: fix escaped newline literals`
+- This journal update is committed separately below.
+
+### Status
+Local Python 3.12 environment: VERIFIED.
+Full local automated test suite: **22/22 PASSED**.
+Git working tree: CLEAN.
+Live merged public subscription E2E: NOT YET VERIFIED.
+GitHub Actions for these latest commits: NOT CLAIMED VERIFIED.
+
+### Next large stage
+Proceed to live middleware startup and A2 end-to-end verification against the existing Remnawave test panel, without modifying Remnawave itself.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
