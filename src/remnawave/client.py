@@ -113,6 +113,13 @@ class RemnawaveClient:
             raise RemnawaveUpstreamError("A2 mapping resolved the same Remnawave user twice")
         return main, secondary
 
+    async def resolve_a2_pair_identifier(self, identifier: str) -> tuple[RemnawaveUser, RemnawaveUser]:
+        """Resolve the client-facing identifier as short UUID first, then username."""
+        try:
+            return await self.resolve_a2_pair_by_short_uuid(identifier)
+        except RemnawaveNotFound:
+            return await self.resolve_a2_pair(identifier)
+
     async def resolve_a2_pair(self, main_username: str) -> tuple[RemnawaveUser, RemnawaveUser]:
         main = await self.get_user_by_username(main_username)
         secondary_username = self.config.secondary_username(main.username)
