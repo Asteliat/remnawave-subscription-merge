@@ -155,3 +155,39 @@ def test_xray_json_list_merge_preserves_main_and_adds_secondary_node() -> None:
 def test_detect_xray_json_list() -> None:
     body = json.dumps([{"outbounds": [{"tag": "direct", "protocol": "freedom"}]}])
     assert detect_format(body) == "xray_json"
+
+
+def test_singbox_duplicate_tag_rewrites_secondary_internal_reference() -> None:
+    main = json.dumps({
+        "outbounds": [
+            {"tag": "proxy", "type": "vless", "server": "main"},
+        ],
+    })
+    secondary = json.dumps({
+        "outbounds": [
+            {"tag": "proxy", "type": "vless", "server": "secondary"},
+            {"tag": "selector", "type": "selector", "outbounds": ["proxy"]},
+        ],
+    })
+    body, _ = merge_payloads(main, secondary)
+    result = json.loads(body)
+    selector = next(item for item in result["outbounds"] if item["tag"] == "selector")
+    assert selector["outbounds"] == ["proxy [addsub]"]
+
+
+def test_singbox_duplicate_tag_rewrites_nested_secondary_reference() -> None:
+    main = json.dumps({
+        "outbounds": [
+            {"tag": "proxy", "type": "vless", "server": "main"},
+        ],
+    })
+    secondary = json.dumps({
+        "outbounds": [
+            {"tag": "proxy", "type": "vless", "server": "secondary"},
+            {"tag": "wrapper", "type": "urltest", "outbounds": ["proxy"]},
+        ],
+    })
+    body, _ = merge_payloads(main, secondary)
+    result = json.loads(body)
+    wrapper = next(item for item in result["outbounds"] if item["tag"] == "wrapper")
+    assert wrapper["outbounds"] == ["proxy [addsub]"]
