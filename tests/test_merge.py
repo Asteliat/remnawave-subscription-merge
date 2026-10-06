@@ -18,6 +18,21 @@ def test_base64_uri_merge_deduplicates_exact_entries() -> None:
     assert base64.b64decode(body).decode().splitlines() == ["vless://one", "vless://two", "vless://three"]
 
 
+def test_base64_uri_merge_renames_secondary_colliding_fragment() -> None:
+    main = b64("vless://main@host:443#rrrrrr", "ss://main@host#other")
+    secondary = b64("vless://secondary@host:443#rrrrrr", "ss://secondary@host#other")
+
+    body, content_type = merge_payloads(main, secondary)
+
+    assert content_type == "text/plain"
+    assert base64.b64decode(body).decode().splitlines() == [
+        "vless://main@host:443#rrrrrr",
+        "ss://main@host#other",
+        "vless://secondary@host:443#rrrrrr [addsub]",
+        "ss://secondary@host#other [addsub]",
+    ]
+
+
 def test_clash_yaml_merge_keeps_main_top_level_and_deduplicates_names() -> None:
     main = yaml.safe_dump({"proxies": [{"name": "one", "server": "a"}], "mode": "rule"}, sort_keys=False)
     secondary = yaml.safe_dump({"proxies": [{"name": "one", "server": "other"}, {"name": "two", "server": "b"}], "mode": "global"}, sort_keys=False)
