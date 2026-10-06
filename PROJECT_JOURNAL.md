@@ -528,3 +528,57 @@ CI configuration: HARDENED; execution remains UNVERIFIED.
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+
+## 2026-10-06 — Entry 0009 — Endpoint reliability and metadata response stage
+
+### Context
+The HTTP endpoint was reviewed as the next large verification block. The repository implementation had two concrete technical gaps: it depended on the private _client() method of the Remnawave user client, and it parsed subscription-userinfo without returning the merged metadata to the client.
+
+### Actions
+- Refactored RemnawaveClient to expose its shared async HTTP client through a public http_client property.
+- Kept ownership semantics explicit: an injected HTTP client is not closed by the Remnawave client; an internally created client is closed by the context manager.
+- Refactored RemnawaveSubscriptionClient to use the same explicit http_client property.
+- Changed username path construction to URL-encode the username as one path segment.
+- Updated the merged endpoint to use the public shared-client interface rather than a private implementation method.
+- Connected the already-defined metadata policy to the client-facing response by returning a synthesized subscription-userinfo header when upstream metadata is present.
+- Preserved Cache-Control: no-store.
+- Added explicit timeout handling with HTTP 504.
+- Added controlled HTTP/network failure handling with HTTP 502 without exposing upstream response bodies or credentials.
+- Added endpoint tests for successful A2 merge, metadata calculation, timeout handling, and malformed subscription failure.
+- Kept the implementation stateless and read-only with respect to Remnawave.
+
+### Verification
+- Re-read the complete journal before changes.
+- Re-read the affected implementation and existing tests before modifying them.
+- dev remains ahead of main and not behind; the current comparison reports 31 commits ahead and 0 behind.
+- GitHub combined status for the latest endpoint test commit currently reports no status entries.
+- The available workflow-run lookup is PR-filtered and returned no run for the direct push commit, so a passing GitHub Actions run cannot be claimed from the available status data.
+- No live Remnawave credentials were used.
+- No production Remnawave configuration, database, subscription, or Docker volume was modified.
+- Live integration with the user's test Remnawave remains pending because the non-secret panel/API endpoint details are not available in the current project context.
+
+### Changed files
+- src/remnawave/client.py
+- src/remnawave/subscription.py
+- src/http_endpoint.py
+- tests/test_http_endpoint.py
+- PROJECT_JOURNAL.md (append-only entry only)
+
+### Commits
+- e186d25ff7dd446684ba73499c7a8ccbf40ef770 — refactor: expose shared Remnawave HTTP client
+- a1b0972a7ace344078c639a450e249258adfac65 — refactor: expose subscription HTTP client
+- 9a6f0d5971942ce4a0105117e33f6e3896c66d33 — feat: return merged subscription metadata
+- cf48d9def5896279e1af2efd4f7ed1a55b1e60cf — test: cover merged endpoint success and failures
+- This journal update is the next commit.
+
+### Status
+Endpoint reliability and metadata response: IMPLEMENTED AT CODE LEVEL.
+Automated CI execution: NOT VERIFIED.
+Live Remnawave integration: PENDING.
+
+### Next large stage
+Run the middleware against the user's test Remnawave environment with two isolated A2 users, verify real raw subscription bodies and real subscription-userinfo semantics, then correct the metadata policy only if live evidence requires it.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
