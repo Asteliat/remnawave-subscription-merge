@@ -1515,3 +1515,159 @@ Synchronize the server from `origin/dev`, run the full pytest suite, then rerun 
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+
+## 2026-10-06 — Entry 0028 — Final A2 live E2E audit passed after Base64 collision fix
+
+### Context
+The server was synchronized from `origin/dev` at commit `bfddffc`, the Base64 collision fix from Entry 0027 was active, and the middleware was restarted from the synchronized checkout. This stage performed the final combined A2 verification across all supported client-facing formats.
+
+### Repository synchronization
+Server checkout was fast-forwarded:
+- `c8137a5 → bfddffc`
+- working tree remained clean and aligned with `origin/dev`.
+
+### Full pytest
+The complete test suite passed:
+- **28 passed**
+- **1 warning**
+
+The only warning is the existing Starlette/httpx deprecation warning from the installed test environment:
+`StarletteDeprecationWarning: Using httpx with starlette.testclient is deprecated; install httpx2 instead.`
+
+No test failures occurred.
+
+### Middleware restart and health
+The middleware was restarted from the updated checkout with:
+`.venv/bin/python -m uvicorn src.http_endpoint:app --host 127.0.0.1 --port 18080`
+
+A new process was started and:
+- GET `/healthz` returned `{"status":"ok"}`.
+
+The service remains bound to loopback `127.0.0.1:18080`.
+
+### Final live A2 audit
+Both independent A2 users were verified:
+- `a2test01`
+- `a2test02`
+
+#### Base64
+For both users:
+- HTTP 200;
+- `text/plain; charset=utf-8`;
+- decoded payload: 529 characters;
+- merged client-facing names included both `rrrrrr` and `rrrrrr [addsub]`;
+- the previously discovered fragment-collision defect is therefore resolved in live output.
+
+Safe complete-response fingerprints differed:
+- a2test01: `5350784b98f464cfbd650d4c60990664e560a889da389c9ce51dbb79f5a01b21`
+- a2test02: `70d2d84823ee2774f5836b336721cf44267839397cce2f09b2e7c25d8fdb1f78`
+
+#### Clash / Mihomo
+For both users:
+- HTTP 200;
+- `text/yaml; charset=utf-8`;
+- 1892 bytes;
+- exactly 2 proxies;
+- proxy names: `rrrrrr`, `rrrrrr [addsub]`;
+- exactly 1 proxy group;
+- group members: `rrrrrr`, `rrrrrr [addsub]`.
+
+Complete-response fingerprints differed:
+- a2test01: `026081040c5c57dfd7154650f304c4ba106949da6ee0870a0e4d72b56e8cc8f8`
+- a2test02: `42d2c4f8882e5c4c94fbb61eab2c622224e00a0fc1f3f2c3cf1041e05246606d`
+
+#### Sing-box
+For both users:
+- HTTP 200;
+- `application/json`;
+- 2236 bytes;
+- exactly 4 outbounds;
+- tags: `→ Remnawave`, `direct`, `rrrrrr`, `rrrrrr [addsub]`;
+- selector contains both merged proxy names.
+
+Complete-response fingerprints differed:
+- a2test01: `005f1e5ff1db4f255812129f2ad2be9ec81affa26351e2add64b8399219745fb`
+- a2test02: `5671b6f22f7aa5d32b02017d306cc79a807a32cbdebb74f55cd1db4d6cd875`
+
+#### Xray JSON
+For both users:
+- HTTP 200;
+- `application/json`;
+- exactly 4 outbounds;
+- tags: `proxy`, `direct`, `block`, `proxy [addsub]`;
+- routing rule type `field`;
+- routing protocol `bittorrent`;
+- routing `outboundTag`: `direct`.
+
+Complete-response fingerprints differed:
+- a2test01: `7cd4986286f63d151d8e6124ebf464c90850dc0daa2d368b32bfa4f2644cf495`
+- a2test02: `79b47c4565e9a96464002b7e70035f6786ddddd47db8b3ad7a7f170da00e9e04`
+
+### Cross-user isolation
+The audit confirmed different complete response fingerprints for both A2 users in all four formats:
+- Base64 — different;
+- Clash — different;
+- Sing-box — different;
+- Xray JSON — different.
+
+This is a verified isolation signal: the two users do not receive byte-identical merged responses. Secret credential values were intentionally not recorded.
+
+### Unknown-user error handling
+Requesting:
+`/sub/a2-definitely-not-existing`
+returned:
+- HTTP **502**;
+- `application/json`;
+- `{"detail":"subscription upstream error"}`.
+
+The audit marked unknown-user handling as OK.
+
+### Final result
+The final live audit reported:
+- HEALTH: OK
+- BASE64: OK
+- CLASH: OK
+- SING-BOX: OK
+- XRAY JSON: OK
+- CROSS-USER ISOLATION: OK
+- UNKNOWN USER HANDLING: OK
+- **FINAL A2 E2E AUDIT: PASS**
+
+This completes the current A2 merge verification stage across Base64, Clash/Mihomo, Sing-box, and Xray JSON.
+
+### Safety / scope
+- No Remnawave Response Rules were changed.
+- No Remnawave users, subscriptions, nodes, quotas, or database data were modified.
+- No secrets were printed into the journal or committed.
+- Temporary audit artifacts remained outside the repository.
+- Existing project history was preserved.
+
+### Changed files in this stage
+No production/test source changes were made during this verification stage. The stage verified the already-committed Entry 0027 fix and prior merge work.
+
+### Commits
+- Verified repository HEAD: `bfddffc` — `docs: record base64 collision fix`
+- Earlier implementation commits verified by this stage:
+  - `5479f60` — fix: rename colliding base64 subscription names
+  - `043a383` — test: cover base64 secondary name collision
+  - `bfddffc` — docs: record base64 collision fix
+
+### Verification status
+- Repository synchronization: VERIFIED.
+- Full pytest: **28 passed, 1 warning**.
+- Middleware restart: VERIFIED.
+- Health endpoint: VERIFIED.
+- Base64 live merge and collision-safe names: VERIFIED.
+- Clash/Mihomo live merge: VERIFIED.
+- Sing-box live merge: VERIFIED.
+- Xray JSON live merge: VERIFIED.
+- Cross-user isolation signal across all four formats: VERIFIED.
+- Unknown-user failure handling: VERIFIED.
+- Final A2 E2E audit: **PASS**.
+
+### Next large stage
+A2 merge behavior is now verified end-to-end. The next work should be treated as a separate stage: deployment hardening / operational integration (process supervision, reverse-proxy exposure only if required, restart persistence, logging/monitoring, and final documentation), without changing the verified merge semantics unless a new concrete defect is found.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
