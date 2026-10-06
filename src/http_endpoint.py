@@ -66,16 +66,16 @@ async def _merged_subscription(identifier: str, request: Request, suffix: str = 
         raise HTTPException(status_code=502, detail="subscription upstream error") from exc
 
 
-@app.get("/sub/{username}")
+@app.get("/sub/{identifier}")
 async def merged_subscription(identifier: str, request: Request) -> Response:
     return await _merged_subscription(identifier, request)
 
 
-@app.get("/sub/{username}/json")
+@app.get("/sub/{identifier}/json")
 async def merged_xray_json_subscription(identifier: str, request: Request) -> Response:
     return await _merged_subscription(identifier, request, suffix="json")
 
 
-@app.get("/sub/{username}/singbox")
+@app.get("/sub/{identifier}/singbox")
 async def merged_singbox_subscription(identifier: str, request: Request) -> Response:
     return await _merged_subscription(identifier, request, suffix="singbox")
