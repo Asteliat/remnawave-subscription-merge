@@ -1716,3 +1716,141 @@ The next action is to synchronize the server from `origin/dev`, inspect the curr
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+## 2026-10-06 — Entry 0030 — Deployment hardening verified: systemd non-root runtime
+
+### Context
+The deployment-hardening stage from Entry 0029 was completed on the live test server. The temporary `nohup` middleware process was replaced by the repository's systemd service template. The service now runs persistently as the dedicated `remnawave-merge` user, loads its configuration from a protected local environment file, and remains bound only to loopback.
+
+### Initial deployment failure and correction
+The first systemd installation attempt failed because the repository working tree did not contain the expected `/opt/remnawave-subscription-merge/.env` file. The previous `nohup` process was still running and its environment inspection confirmed that the four required `REMNAWAVE_*` variables had been supplied directly through the shell environment.
+
+No secret values were printed or recorded. The existing values were transferred locally into a protected `.env` file without displaying them.
+
+The resulting environment file was verified as:
+- owner/group: `root:remnawave-merge`;
+- permissions: `640`;
+- location: `/opt/remnawave-subscription-merge/.env`.
+
+The earlier systemd failures in journald are historical records from before the file was created. The final start attempt succeeded.
+
+### Systemd runtime verification
+The temporary `nohup` process was stopped and the systemd service was started successfully.
+
+Verified:
+- service: `remnawave-subscription-merge.service`;
+- boot enablement: `enabled`;
+- runtime state: `active (running)`;
+- runtime PID after restart: `3365706`;
+- process executable: `/opt/remnawave-subscription-merge/.venv/bin/python`;
+- runtime user/group: `remnawave-merge`;
+- required `REMNAWAVE_*` environment keys are present in the supervised process;
+- `PYTHONDONTWRITEBYTECODE` is present;
+- `GET /healthz` returned `{"status":"ok"}`;
+- listener: `127.0.0.1:18080` only.
+
+A service restart was explicitly tested. The PID changed from `3364422` to `3365706`, the service remained active, and `/healthz` remained healthy after the restart.
+
+### Live A2 verification after migration
+The supervised systemd process was exercised against both independent A2 users:
+- `a2test01`;
+- `a2test02`.
+
+#### Base64
+Both requests returned HTTP 200. The decoded merged body was 529 characters for each user and contained:
+- main URI name: `rrrrrr`;
+- secondary URI name: `rrrrrr [addsub]`.
+
+This confirms that the previously fixed Base64 fragment-collision behavior remains active after the deployment migration.
+
+#### Clash / Mihomo
+Both users returned HTTP 200 and 1892-byte YAML documents.
+
+For each:
+- exactly 2 proxies;
+- proxy names: `rrrrrr`, `rrrrrr [addsub]`;
+- exactly 1 proxy group;
+- group `→ Remnawave` contains both proxy names.
+
+#### Sing-box
+Both users returned HTTP 200 and 2236-byte JSON documents.
+
+For each:
+- exactly 4 outbounds;
+- tags: `→ Remnawave`, `direct`, `rrrrrr`, `rrrrrr [addsub]`;
+- the selector `→ Remnawave` contains both proxy names.
+
+#### Xray JSON
+Both users returned HTTP 200. The live Xray response was verified as valid JSON with the actual Remnawave root shape:
+- root type: list;
+- root length: 1;
+- single item type: dict;
+- top-level keys: `dns`, `routing`, `inbounds`, `outbounds`, `remarks`.
+
+The first inspection script incorrectly assumed the Xray root was a dictionary and raised `AttributeError`. This was a diagnostic-script contract error, not an application failure. A corrected structure-aware inspection subsequently confirmed the real root-list shape and successful JSON serialization.
+
+A cross-user content comparison found user-specific UUID values present only in the corresponding user's response:
+- `a2test01`: two unique UUID values;
+- `a2test02`: two different unique UUID values.
+
+Complete-response SHA-256 fingerprints also differed:
+- `a2test01`: `7cd4986286f63d151d8e6124ebf464c90850dc0daa2d368b32bfa4f2644cf495`;
+- `a2test02`: `79b47c4565e9a96464002b7e70035f6786ddddd47db8b3ad7a7f170da00e9e04`.
+
+This provides stronger non-secret cross-user isolation evidence for the live Xray path.
+
+### Failure-path verification
+The supervised service returned:
+- unknown user `/sub/a2-definitely-not-existing` → HTTP 502;
+- response body: `{"detail":"subscription upstream error"}`.
+
+No internal Remnawave error details or credentials were exposed.
+
+### Safety and scope
+- No Remnawave Response Rule was modified.
+- No Remnawave user, subscription, node, quota, or database data was modified.
+- No API token or other secret was printed into the journal or committed.
+- The middleware remains loopback-only on `127.0.0.1:18080`.
+- The deployment service uses a dedicated non-root runtime account.
+- Existing project history was preserved; this entry was appended only.
+
+### Diagnostic corrections recorded
+Two live inspection scripts made incorrect assumptions during this stage:
+1. a content-type/Xray inspection attempted to treat the Xray root as a dictionary;
+2. the follow-up inspector again assumed a dictionary before discovering the actual root list.
+
+Both failures were in the inspection commands only. The HTTP endpoint itself returned successful responses. The corrected inspector verified the actual live Xray shape.
+
+### Changed files
+- `PROJECT_JOURNAL.md` — append-only entry only.
+
+### Commits
+- Repository implementation artifacts verified from `origin/dev` at `2ee79b6` before this server-side completion record.
+- This entry is committed separately as the journal update.
+
+### Verification status
+- Protected environment configuration: VERIFIED.
+- systemd installation: VERIFIED.
+- systemd boot enablement: VERIFIED.
+- non-root runtime: VERIFIED.
+- service restart recovery: VERIFIED.
+- loopback-only listener: VERIFIED.
+- health before/after restart: VERIFIED.
+- Base64 A2 live merge after migration: VERIFIED.
+- Clash/Mihomo A2 live merge after migration: VERIFIED.
+- Sing-box A2 live merge after migration: VERIFIED.
+- Xray JSON A2 live merge after migration: VERIFIED.
+- stronger cross-user Xray isolation evidence: VERIFIED.
+- unknown-user failure handling: VERIFIED.
+- Remnawave mutation: NOT PERFORMED.
+
+### Remaining deployment work
+The core host-level deployment hardening is now verified. Remaining deployment-specific work includes reverse-proxy integration only if/when the client-facing architecture requires it, plus any final production rollout procedure and final audit documentation. Port 18080 must remain non-public unless a deliberately verified reverse-proxy/network design requires otherwise.
+
+### Status
+Deployment hardening core: **COMPLETE / VERIFIED**.
+A2 merge semantics: **preserved and re-verified after supervised deployment**.
+Final project audit: **NOT YET COMPLETE**.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
