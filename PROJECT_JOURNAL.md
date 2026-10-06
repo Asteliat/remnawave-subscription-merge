@@ -438,3 +438,37 @@ HTTP stage: PREPARED, NOT COMPLETE.
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+## 2026-10-06 — Entry 0006 — HTTP endpoint and metadata foundation
+
+### Actions
+- Added a FastAPI application with `/healthz` and `/sub/{username}`.
+- The subscription endpoint resolves the per-user A2 pair, fetches both protected Remnawave raw payloads, merges them, and returns a client-facing response.
+- Added `Cache-Control: no-store` to avoid caching private subscription content.
+- Added explicit `subscription-userinfo` parsing and deterministic merge policy as a standalone metadata module.
+- Added tests for metadata addition, malformed metadata, and missing fields.
+
+### Metadata policy
+- Download and upload counters are summed.
+- Total quota is summed.
+- Expiry is the later of the two upstream expiries.
+- Missing metadata is preserved rather than invented.
+- The HTTP endpoint currently does not synthesize this header until the upstream raw response/header contract is verified against a live Remnawave instance. This is intentional and is not claimed complete.
+
+### Verification
+- `dev` is 20 commits ahead of `main` and 0 behind.
+- No GitHub status checks are currently reported for the latest commit; automated execution therefore remains unverified.
+- No live Remnawave credentials were used and no production data was changed.
+- The endpoint code is present in the branch; live endpoint behavior is not yet verified.
+
+### Changed files
+- `src/http_endpoint.py`
+- `src/metadata.py`
+- `tests/test_metadata.py`
+- `PROJECT_JOURNAL.md` (append-only entry only)
+
+### Status
+HTTP stage: IMPLEMENTED AT CODE LEVEL, LIVE/CI VERIFIED: NO.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
