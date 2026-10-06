@@ -1,0 +1,77 @@
+# Nginx reverse-proxy example
+
+This is a deployment template. Replace `subscription.example` with the real public hostname and configure DNS/TLS separately.
+
+The application remains bound to `127.0.0.1:18080`; port 18080 must not be published to the Internet.
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name subscription.example;
+
+    ssl_certificate     /etc/letsencrypt/live/subscription.example/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/subscription.example/privkey.pem;
+
+    client_max_body_size 1k;
+
+    location = /healthz {
+        return 404;
+    }
+
+    location ^~ /sub/ {
+        proxy_pass http://127.0.0.1:18080;
+        proxy_http_version 1.1;
+
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 15s;
+        proxy_send_timeout 15s;
+
+        proxy_set_header User-Agent $http_user_agent;
+        proxy_set_header X-HWID $http_x_hwid;
+        proxy_set_header X-Device-OS $http_x_device_os;
+        proxy_set_header X-Ver-OS $http_x_ver_os;
+        proxy_set_header X-Device-Model $http_x_device_model;
+
+        proxy_set_header Host 127.0.0.1:18080;
+        proxy_set_header Connection "";
+        proxy_pass_request_body off;
+
+        proxy_no_cache 1;
+        proxy_cache_bypass 1;
+    }
+
+    location / {
+        return 404;
+    }
+}
+```
+
+## TLS and logging
+
+- Use a valid publicly trusted certificate.
+- Keep TLS verification enabled for upstream Remnawave requests.
+- Do not log authorization headers, API tokens, cookies, full subscription bodies, or complete private subscription URLs.
+- Usernames and subscription endpoint paths are sensitive; prefer a log format that omits the request URI for this server, or disable access logging if equivalent monitoring is available.
+- Keep Nginx error logs free of request bodies and credentials.
+- The application returns `Cache-Control: no-store`; do not introduce proxy caching.
+
+## Pre-cutover checks
+
+1. `curl -fsS http://127.0.0.1:18080/healthz`
+2. `ss -lntp | grep ':18080 '` — confirm loopback-only binding.
+3. `nginx -t`
+4. `systemctl reload nginx`
+5. Test HTTPS with a real subscription URL and client User-Agent/HWID flow.
+6. Verify public `/healthz` and unrelated paths return 404.
+7. Verify direct external access to port 18080 is impossible.
+
+## Rollback
+
+If the public endpoint fails:
+1. Restore the previous Nginx configuration.
+2. Run `nginx -t`.
+3. Run `systemctl reload nginx`.
+4. Keep the middleware running while diagnosing locally.
+5. If the application release is the cause, check out the previous known-good commit, reinstall dependencies if required, restart the service, and verify `/healthz` before restoring public traffic.
+
+Never roll back by deleting or rewriting `PROJECT_JOURNAL.md`; append the rollback result as a new journal entry.

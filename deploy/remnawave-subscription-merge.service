@@ -1,0 +1,33 @@
+[Unit]
+Description=Middleware слияния подписок Remnawave
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=remnawave-merge
+Group=remnawave-merge
+WorkingDirectory=/opt/remnawave-subscription-merge
+EnvironmentFile=/opt/remnawave-subscription-merge/.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/remnawave-subscription-merge/.venv/bin/python -m uvicorn src.http_endpoint:app --host 127.0.0.1 --port 18080
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+UMask=027
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictNamespaces=true
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target
