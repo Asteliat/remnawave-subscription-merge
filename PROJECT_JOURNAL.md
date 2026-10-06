@@ -2099,3 +2099,41 @@ Final production audit: IN PROGRESS.
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+
+## 2026-10-06 — Entry 0035 — Xray reference rewrite boundary hardening
+
+### Context
+The remaining Xray edge-case review found that the merge path still used the old broad recursive string replacement for renamed secondary outbound tags. This could alter unrelated string-valued configuration data when it happened to equal an outbound tag.
+
+### Fix
+Added a dedicated Xray reference rewrite routine and replaced the broad string rewrite for secondary Xray outbounds. The routine only rewrites known reference-bearing fields handled by the merge layer, including `outboundTag`, `balancerTag`, `detour`, `selector`, and `subjectSelector`. Ordinary strings remain unchanged.
+
+This is deliberately scoped to the secondary outbounds actually appended by the merger; the merger continues to preserve the main Xray configuration rather than importing the secondary top-level routing configuration.
+
+### Automated coverage
+Added tests proving:
+- an unrelated Xray string field equal to a colliding tag is preserved;
+- an Xray `detour` reference to a renamed secondary tag is rewritten.
+
+### Changed files
+- src/merge.py
+- tests/test_merge.py
+- PROJECT_JOURNAL.md — append-only entry only.
+
+### Commits
+- e06e61ec3d75aeb84a8ae20ebbb376201b3c4235 — fix: narrow Xray outbound reference rewrites
+- 83122efdfe4c2416632b795e0c324783c693dadb — test: cover Xray reference rewrite boundaries
+- 2f9955a06488eb7e8294df86b7e338bc4c2b7f20 — test: correct Xray reference coverage
+- This journal entry is committed separately below.
+
+### Verification status
+The implementation and tests are committed on dev. GitHub Actions verification for the latest test commit is still pending/not returned by the repository workflow lookup. No production Remnawave data or configuration was changed.
+
+### Status
+Xray reference rewrite hardening: IMPLEMENTED / COMMITTED.
+CI verification: PENDING.
+Final production audit: IN PROGRESS.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
