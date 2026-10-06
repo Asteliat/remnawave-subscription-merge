@@ -17,6 +17,7 @@ Optional:
 
 - `REMNAWAVE_SECONDARY_SUFFIX` (default `_addsub`)
 - `REMNAWAVE_TIMEOUT_SECONDS` (default `10`)
+- `REMNAWAVE_MAX_SUBSCRIPTION_BYTES` (default `8388608`, 8 MiB)
 
 Never put secrets into Git or this documentation.
 
