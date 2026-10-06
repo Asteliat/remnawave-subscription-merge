@@ -397,8 +397,7 @@ The middleware will not blindly copy upstream headers. Subscription body merging
 - `src/merge.py`
 - `tests/test_merge.py`
 - `PROJECT_JOURNAL.md` (append-only entry only)
-### Commits
-- `a244e9a4d9228d133bf3ead461a0ed7945271862` — protected subscription fetch and format detection
+### Commits- `a244e9a4d9228d133bf3ead461a0ed7945271862` — protected subscription fetch and format detection
 - `328e45be4c61ae7489bd778368f012b910119992` — merge engine
 - `fe7c0b5af6a0a4d95c0e0ac27347650709307427` — merge tests
 - Journal update commit follows.
@@ -797,7 +796,6 @@ Full stage: still awaiting automated/live verification.
 ## 2026-10-06 — Entry 0014 — Collision-safety verification correction
 ### Verification finding
 A repository-level review of the rendered-subscription merge exposed a functional risk that was not visible in the earlier synthetic tests: Remnawave can render identical proxy names/tags for two separate users when the same template/host remark is used.
-
 The previous merge policy treated duplicate names/tags as "main wins". That could silently discard the addsub connection, which is unacceptable for A2.
 
 ### Correction
@@ -1083,6 +1081,85 @@ JSON merge E2E: PENDING.
 
 ### Next large stage
 Determine the safest supported way to obtain a live JSON subscription body without weakening or replacing the current critical fallback/browser rules. Then run a non-destructive JSON merge E2E and verify both A2 users, including selectors/routing where applicable.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
+
+## 2026-10-06 — Entry 0021 — Live Sing-box and Xray JSON structural verification
+
+### Context
+The live JSON-family discovery was continued without modifying Remnawave Response Rules. The goal was to establish the actual JSON body structures for two independent A2 users before changing merge logic or live panel configuration.
+
+### Live Sing-box verification
+For both `a2test01` and `a2test02`, a live request with User-Agent `singbox` returned:
+- HTTP/2 200;
+- `application/json; charset=utf-8`;
+- 1817 bytes;
+- JSON root object with six top-level keys: `dns`, `log`, `route`, `inbounds`, `outbounds`, `experimental`;
+- `dns`: 3 keys, including 1 rule and 3 servers;
+- `route`: 3 keys, including 3 rules;
+- `inbounds`: 2 entries;
+- `outbounds`: 3 entries;
+- `experimental`: 2 objects.
+
+The three outbounds were structurally:
+1. selector, tag `→ Remnawave`;
+2. direct, tag `direct`;
+3. vless, tag `rrrrrr`.
+
+The selector contained exactly one outbound reference, `rrrrrr`. Both users had the same non-secret structure, while their complete JSON fingerprints differed (`a2test01`: `0fae8202edcbce612441807cb1cc744f3fadc4fdddae5d261bba69c5deff2f4c`; `a2test02`: `d3e9ea0019fad22d68a68d486536d9a83512491fea771137d116a81fb0b2f793`).
+
+The route rules were identical in structure: sniff, DNS hijack, and private-IP routing to `direct`. No credentials or secret scalar values were recorded.
+
+### Live Xray JSON verification
+For both A2 users, the explicit public subscription suffix `/json` returned:
+- HTTP/2 200;
+- `application/json; charset=utf-8`;
+- 1175 bytes;
+- JSON root list with exactly one item.
+
+The single Xray JSON item had exactly five top-level keys:
+- `dns`;
+- `routing`;
+- `inbounds` (2 entries);
+- `outbounds` (3 entries);
+- `remarks`.
+
+The `remarks` value was the same safe proxy remark `rrrrrr` for both test users. No credentials or sensitive nested values were recorded.
+
+### Important response-dispatch finding
+Normal requests using `Happ/1.0`, `INCY/1.0`, `v2rayN/7.0`, and `v2rayNG/1.0` returned the 348-byte Base64 fallback under the current live Response Rules. The explicit `/json` suffix nevertheless returned real XRAY_JSON for both users. This is consistent with Remnawave's documented explicit-format suffix behavior: `/json` forces XRAY_JSON, while response rules determine the normal bare-subscription format. citeturn0search2turn0search7
+
+Remnawave's current public default template list also identifies `XRAY_JSON` as a supported subscription template family, separate from Sing-box. citeturn0search1turn0search0
+
+### Architectural conclusion
+The live evidence establishes two distinct JSON merge targets:
+- Sing-box: merge the user-specific VLESS outbound into the main JSON while preserving the shared selector/routing/inbound/template structure and updating selector references when collisions require renaming.
+- Xray JSON: merge the single generated configuration object at its `outbounds` level while preserving `dns`, `routing`, `inbounds`, and other non-proxy configuration; collision-safe outbound tag handling must also preserve any references to renamed tags.
+
+The existing live evidence does **not** justify changing the Remnawave Response Rules yet. The middleware can test JSON merging using the explicit `/json` and `/singbox` paths without weakening the live critical fallback/browser rules.
+
+### Safety
+- No Remnawave Response Rule was created, edited, reordered, enabled, or disabled.
+- No Remnawave user, subscription, node, quota, or database data was modified.
+- No credential, UUID, password, token, private key, or full proxy body was recorded in the journal.
+- Temporary live response files contained only test data and were not committed.
+
+### Changed files
+- `PROJECT_JOURNAL.md` (append-only entry only)
+
+### Commit
+- This journal update is the final commit of this verification stage.
+
+### Status
+- Live Sing-box JSON structure: VERIFIED for both A2 users.
+- Live Xray JSON structure via explicit `/json`: VERIFIED for both A2 users.
+- Normal Xray-client UA JSON dispatch: NOT selected by the current live rules; Base64 fallback observed.
+- JSON merge implementation against these live structures: NEXT.
+- Remnawave configuration mutation: NOT PERFORMED.
+
+### Next large stage
+Implement and test exact Sing-box and Xray JSON merge semantics against the verified live structures, then exercise the middleware using explicit `/singbox` and `/json` upstream requests in a controlled E2E test. After that, decide whether any Response Rule change is actually required.
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
