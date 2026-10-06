@@ -9,7 +9,7 @@ class SubscriptionMetadata:
     expire: int
 
     def userinfo(self) -> str:
-        return f"download={self.download};upload={self.upload};total={self.total};expire={self.expire}"
+        return f"upload={self.upload};download={self.download};total={self.total};expire={self.expire}"
 
 
 def parse_userinfo(value: str | None) -> SubscriptionMetadata | None:
@@ -44,9 +44,13 @@ def merge_userinfo(main: str | None, secondary: str | None) -> str | None:
         return second.userinfo()
     if second is None:
         return first.userinfo()
+
+    # Remnawave uses total=0 to mean unlimited. If either subscription is
+    # unlimited, the merged subscription must remain unlimited.
+    total = 0 if first.total == 0 or second.total == 0 else first.total + second.total
     return SubscriptionMetadata(
         download=first.download + second.download,
         upload=first.upload + second.upload,
-        total=first.total + second.total,
+        total=total,
         expire=max(first.expire, second.expire),
     ).userinfo()
