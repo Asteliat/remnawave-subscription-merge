@@ -1,6 +1,7 @@
 """HTTP entry point for the client-facing merged subscription."""
 
 import asyncio
+import os
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request, Response
