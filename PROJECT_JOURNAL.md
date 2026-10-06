@@ -2054,3 +2054,48 @@ Final production audit: IN PROGRESS.
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+
+## 2026-10-06 — Entry 0034 — Merge edge-case hardening: reject ambiguous source tags and narrow Sing-box reference rewrites
+
+### Context
+The Xray/Sing-box edge-case audit continued after Entry 0033. Review of the collision maps found a second ambiguity class: duplicate proxy/tag names inside one source configuration. A single replacement map cannot represent two source objects with the same identifier without potentially rewriting references to the wrong object.
+
+### Finding and decision
+The merge layer now fails closed when a single Clash, Sing-box, or Xray source contains duplicate proxy/tag identifiers. Cross-source collisions remain supported and are still deterministically renamed with the existing [addsub] convention.
+
+The previous recursive Sing-box string replacement was also narrowed. Secondary Sing-box references are now rewritten only in reference-bearing fields currently handled by the merger (outbounds and detour), preventing a collision such as proxy from accidentally changing unrelated data such as a server/address string that happens to equal the outbound tag.
+
+### Automated coverage added
+Added tests for:
+- duplicate Clash proxy names within one source being rejected;
+- duplicate Sing-box/Xray tags within one source being rejected;
+- unrelated Sing-box string fields remaining unchanged after a tag collision is renamed.
+
+Existing cross-source collision and secondary-reference tests remain intact.
+
+### Changed files
+- src/merge.py
+- tests/test_merge.py
+- PROJECT_JOURNAL.md — append-only entry only.
+
+### Commits
+- abe3927c9ae84976de5ef4e9a48528a842cbd24f — fix: reject ambiguous outbound names and narrow reference rewrites
+- 15dfc3698a51cd074cd6938eda311aea486e9ccb — test: cover ambiguous merge source names
+- cb2fa9a68b717c34807407f674514277bd5255e6 — repository contents update with no source-tree change; no functional change
+- This journal entry is committed separately below.
+
+### Verification status
+The implementation and tests are committed on dev. GitHub Actions lookup for the latest test commit currently returns no associated workflow run/status, so CI verification is PENDING. No production Remnawave configuration or data was changed.
+
+### Remaining edge-case audit
+Continue checking Xray/Sing-box/Clash structural edge cases and then move to the live deployment/reverse-proxy/client compatibility block. Final production verdict remains open until those checks and CI verification are complete.
+
+### Status
+Ambiguous source identifier hardening: IMPLEMENTED / COMMITTED.
+Sing-box reference rewrite narrowing: IMPLEMENTED / COMMITTED.
+CI verification: PENDING.
+Final production audit: IN PROGRESS.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
