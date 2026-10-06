@@ -27,7 +27,7 @@ def _payload(body: str, userinfo: str | None = None) -> SubscriptionPayload:
 
 def _config() -> RemnawaveConfig:
     return RemnawaveConfig(base_url="https://remna.test", api_token="test-token",
-                           timeout_seconds=5.0, secondary_suffix="_addsub", max_subscription_bytes=16)
+                           timeout_seconds=5.0, secondary_suffix="_addsub")
 
 
 def test_merged_subscription_success_forwards_client_headers(monkeypatch) -> None:
@@ -183,12 +183,16 @@ def test_explicit_singbox_suffix_is_forwarded_to_both_subscriptions(monkeypatch)
 
 
 @pytest.mark.asyncio
-async def test_public_subscription_rejects_oversized_content_length() -> None:
+async def _small_config() -> RemnawaveConfig:
+    return RemnawaveConfig(base_url="https://remna.test", api_token="test-token", timeout_seconds=5.0, secondary_suffix="_addsub", max_subscription_bytes=16)
+
+
+def test_public_subscription_rejects_oversized_content_length() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, headers={"content-length": "17"}, text="x" * 17)
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        subscriptions = RemnawaveSubscriptionClient(_config(), client)
+        subscriptions = RemnawaveSubscriptionClient(_small_config(), client)
         with pytest.raises(SubscriptionPayloadError, match="too large"):
             await subscriptions.fetch_public("https://sub.example/alice")
 
