@@ -132,6 +132,9 @@ def test_xray_json_list_merge_preserves_main_and_adds_secondary_node() -> None:
     assert len(result) == 1
     assert [x["tag"] for x in result[0]["outbounds"]] == ["direct", "block", "proxy", "proxy [addsub]"]
     assert result[0]["remarks"] == "main"
+    assert result[0]["routing"]["rules"][0]["outboundTag"] == "direct"
+    assert result[0]["outbounds"][2]["settings"]["vnext"][0]["address"] == "main"
+    assert result[0]["outbounds"][3]["settings"]["vnext"][0]["address"] == "secondary"
 
 
 def test_detect_xray_json_list() -> None:
