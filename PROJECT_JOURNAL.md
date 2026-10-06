@@ -582,3 +582,32 @@ Run the middleware against the user's test Remnawave environment with two isolat
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+
+## 2026-10-06 — Entry 0010 — Live-panel connectivity preflight
+
+### Context
+A dedicated unused Remnawave test panel was supplied for live integration testing. A full-privilege API token was provided by the user for this test environment.
+
+### Verification
+- The supplied panel URL was checked from the available execution environment.
+- The execution environment could not resolve the supplied panel hostname, so no authenticated API request was completed.
+- No API token value was written to the repository, journal, source files, test fixtures, command output, or CI configuration.
+- No Remnawave mutation was attempted.
+- Public documentation confirms Remnawave API-token authentication uses Authorization: Bearer and that API tokens are created in the panel API-token settings.
+- The live integration therefore remains UNVERIFIED from this environment.
+
+### Security note
+Because the full API token was pasted into chat, it should be treated as exposed. After the live test, revoke/delete that token and create a fresh least-privilege token for the eventual deployed middleware. Do not store a full-privilege token in source control.
+
+### Next large stage
+Execute the same read-only preflight from an environment that can resolve and reach the test panel, then create two isolated A2 test users and verify:
+- main username lookup;
+- main + _addsub mapping;
+- raw subscription retrieval;
+- actual response format;
+- actual subscription-userinfo;
+- merged output and cross-user isolation.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
