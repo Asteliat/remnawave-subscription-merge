@@ -45,3 +45,8 @@ def test_mixed_formats_fail_closed() -> None:
 def test_unknown_json_fails_closed() -> None:
     with pytest.raises(SubscriptionPayloadError):
         detect_format(json.dumps({"foo": "bar"}))
+
+
+def test_clash_yaml_is_detected_as_yaml() -> None:
+    body = yaml.safe_dump({"proxies": [{"name": "one", "server": "example"}]}, sort_keys=False)
+    assert detect_format(body) == "clash_yaml"
