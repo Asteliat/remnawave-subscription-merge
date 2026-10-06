@@ -2311,3 +2311,36 @@ Live integration: PENDING.
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+## 2026-10-06 — Entry 0039 — FastAPI route parameter correction after final source verification
+
+### Finding
+The previous integration stage renamed the endpoint function argument from username to identifier, but the three FastAPI route decorators still used the old {username} path parameter name. FastAPI would therefore not bind the path value to the function argument correctly.
+
+### Fix
+Updated all three client-facing subscription routes to use {identifier}:
+- /sub/{identifier}
+- /sub/{identifier}/json
+- /sub/{identifier}/singbox
+
+This is a correction to the newly added short-UUID/identifier routing only. No previous merge behavior was removed or rewritten.
+
+### Verification
+- Re-read the resulting endpoint source after the correction.
+- The available GitHub combined-status lookup currently reports no status entries for the new commit, so CI is not claimed as verified.
+- Local execution remains unavailable because the execution environment cannot resolve GitHub for cloning dependencies.
+
+### Changed files
+- src/http_endpoint.py
+- PROJECT_JOURNAL.md — append-only entry only.
+
+### Commit
+- 5337b7200e1d01ac5389ef48b8220b65b356a560 — fix: align FastAPI path parameter names
+
+### Status
+Route binding correction: IMPLEMENTED / source-verified.
+CI: PENDING.
+Live integration: PENDING.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
