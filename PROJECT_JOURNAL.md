@@ -1348,3 +1348,107 @@ Pull the new commit to the server and rerun the complete pytest suite. If green,
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+
+## 2026-10-06 — Entry 0026 — Live JSON merge E2E verified and Xray assertion aligned with actual Remnawave shape
+
+### Context
+The middleware was restarted from the synchronized dev checkout after Entry 0025. The health endpoint returned successfully. A controlled live E2E was executed for both A2 users using the explicit middleware routes /sub/{username}/json and /sub/{username}/singbox.
+
+### Live middleware restart
+- Previous middleware process was stopped.
+- New process started with .venv/bin/python -m uvicorn src.http_endpoint:app --host 127.0.0.1 --port 18080.
+- New process PID observed: 3348417.
+- GET /healthz returned {"status":"ok"}.
+
+### Live Xray JSON results
+For both a2test01 and a2test02, GET /sub/{username}/json with User-Agent v2rayN/7.0 returned:
+- HTTP 200;
+- application/json;
+- cache-control: no-store;
+- a valid subscription-userinfo header;
+- JSON root list[1];
+- exactly 4 outbounds.
+
+The actual live outbound tags for both users were:
+- proxy — VLESS;
+- direct — freedom;
+- block — blackhole;
+- proxy [addsub] — VLESS.
+
+Both VLESS outbounds contained a valid settings.vnext list with an address and port present. The live routing object contained one field rule whose outboundTag was direct.
+
+The live remarks value was rrrrrr.
+
+This establishes that the Xray merge is functioning against the real Remnawave JSON shape: the main proxy and secondary proxy are both present, infrastructure outbounds are preserved, and the main routing configuration remains intact.
+
+### Live Sing-box JSON results
+For both a2test01 and a2test02, GET /sub/{username}/singbox with User-Agent singbox returned:
+- HTTP 200;
+- application/json;
+- cache-control: no-store;
+- a valid subscription-userinfo header;
+- JSON root object;
+- exactly 4 outbounds.
+
+The live outbound tags were:
+- → Remnawave — selector;
+- direct — direct;
+- rrrrrr — VLESS;
+- rrrrrr [addsub] — secondary VLESS.
+
+The selector members were exactly:
+- rrrrrr;
+- rrrrrr [addsub].
+
+The required template sections were present, and the live structure check reported SING-BOX MERGE: OK.
+
+### Cross-user isolation signal
+The complete live response SHA-256 fingerprints differed for both A2 users and both explicit JSON formats:
+
+- a2test01-xray.json: 7cd4986286f63d151d8e6124ebf464c90850dc0daa2d368b32bfa4f2644cf495
+- a2test02-xray.json: 79b47c4565e9a96464002b7e70035f6786ddddd47db8b3ad7a7f170da00e9e04
+- a2test01-singbox.json: 005f1e5ff1db4f255812129f2ad2be9ec81affa26351e2add64b8399219745fb
+- a2test02-singbox.json: 5671b6f22f7aa5d32b02017d306cc79a807a32cbdebbcb74f55cd1db4d6cd875
+
+Different fingerprints prove the two complete responses are not identical. They are an isolation signal, not by themselves proof of every credential-level isolation property; secret values were intentionally not recorded.
+
+### Test correction discovered during live E2E
+The initial live Xray assertion expected proxy tags rrrrrr and rrrrrr [addsub], but the actual Xray template uses proxy and proxy [addsub]. This caused the inspection assertion to fail even though the HTTP response and merge structure were valid.
+
+The Sing-box assertion passed without modification.
+
+The repository Xray merge test was aligned with the verified live shape and strengthened to assert:
+- the main routing rule still targets direct;
+- the main VLESS address remains in the main outbound;
+- the secondary VLESS address remains in the renamed secondary outbound.
+
+### Safety
+- No Remnawave Response Rule was changed.
+- No Remnawave user, subscription, node, quota, or database data was modified.
+- No secrets were printed or committed.
+- Temporary response files remained outside the repository.
+- The middleware remained bound to loopback 127.0.0.1:18080.
+
+### Changed files
+- tests/test_merge.py — aligned Xray assertions with the verified live Remnawave structure and added routing/node preservation assertions.
+- PROJECT_JOURNAL.md — append-only entry only.
+
+### Commits
+- 80fe5e1b5732bb38a0107d6e59e4f1b1a0d23112 — test: align Xray merge assertions with live Remnawave shape
+- Journal update commit follows.
+
+### Verification status
+- Middleware restart and health check: VERIFIED.
+- Live Xray JSON merge for a2test01: VERIFIED structurally.
+- Live Xray JSON merge for a2test02: VERIFIED structurally.
+- Live Sing-box JSON merge for a2test01: VERIFIED.
+- Live Sing-box JSON merge for a2test02: VERIFIED.
+- Cross-user response fingerprints: DIFFERENT for both explicit formats.
+- Full pytest after the new test assertion change: PENDING.
+
+### Next large stage
+Pull the test assertion commit to the server, run the complete pytest suite, and then perform the final combined verification of Base64, Clash/Mihomo, Xray JSON, Sing-box JSON, A2 mapping/isolation, metadata, and failure handling. Only after that should the project move toward final audit/deployment hardening.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
