@@ -27,9 +27,11 @@ _RESPONSE_HEADERS = (
     "x-hwid-not-supported",
 )
 
-_config = RemnawaveConfig.from_env()
-_pair_store = PairStore(_config.merge_data_dir)
-_rezeis_client = RezeisClient(_config.rezeis_base_url, _config.timeout_seconds)
+_pair_store = PairStore(os.getenv("MERGE_DATA_DIR", "/var/lib/remnawave-subscription-merge"))
+_rezeis_client = RezeisClient(
+    os.getenv("REZEIS_BASE_URL", "").strip().rstrip("/"),
+    10.0,
+)
 app.include_router(build_router(_pair_store, _rezeis_client))
 
 
