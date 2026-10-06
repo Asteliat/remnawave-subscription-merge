@@ -13,6 +13,9 @@ venv/
 .env.*
 !.env.example
 
+# Private project history
+PROJECT_JOURNAL.md
+
 # Local tooling
 .idea/
 .vscode/
