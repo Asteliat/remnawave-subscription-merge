@@ -46,7 +46,8 @@ def test_merged_subscription_success_forwards_client_headers(monkeypatch) -> Non
 
     class FakeSubscriptions:
         def __init__(self, config, http_client): assert http_client is FakeUsers.http_client
-        async def fetch_public(self, subscription_url, request_headers):
+        async def fetch_public(self, subscription_url, request_headers, suffix=""):
+            assert suffix == ""
             seen.append((subscription_url, request_headers))
             return {
                 "https://sub.example/main-a": _payload(body_a, "download=10;upload=20;total=0;expire=200"),
@@ -81,7 +82,8 @@ def test_profile_url_is_not_forwarded(monkeypatch) -> None:
         async def resolve_a2_pair(self, username): return main, secondary
     class FakeSubscriptions:
         def __init__(self, config, http_client): pass
-        async def fetch_public(self, subscription_url, request_headers):
+        async def fetch_public(self, subscription_url, request_headers, suffix=""):
+            assert suffix == ""
             return SubscriptionPayload(
                 body=base64.b64encode(b"vless://one\n").decode(), content_type="text/plain",
                 headers={"subscription-userinfo": "download=0;upload=0;total=0;expire=100",
@@ -116,7 +118,7 @@ def test_malformed_subscription_is_502(monkeypatch) -> None:
         async def resolve_a2_pair(self, username): return main, secondary
     class FakeSubscriptions:
         def __init__(self, config, http_client): pass
-        async def fetch_public(self, subscription_url, request_headers): return _payload("not-valid-base64-%%")
+        async def fetch_public(self, subscription_url, request_headers, suffix=""): return _payload("not-valid-base64-%%")
     monkeypatch.setattr(endpoint.RemnawaveConfig, "from_env", _config)
     monkeypatch.setattr(endpoint, "RemnawaveClient", FakeUsers)
     monkeypatch.setattr(endpoint, "RemnawaveSubscriptionClient", FakeSubscriptions)
