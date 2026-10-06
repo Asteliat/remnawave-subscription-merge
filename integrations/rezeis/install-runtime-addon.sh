@@ -30,8 +30,8 @@ fi
 # Remove only a previous copy of our two tags, then inject the current copy.
 node - "$INDEX" "$MERGE_PUBLIC_URL" <<'NODE'
 const fs = require("node:fs");
-const index = process.argv[2];
-const base = process.argv[3].replace(/\\/+$/, "");
+const index = process.argv[1];
+const base = process.argv[2].replace(/\\/+$/, "");
 let text = fs.readFileSync(index, "utf8");
 
 const start = "<!-- REMNAWAVE-SUBSCRIPTION-MERGE:START -->";
