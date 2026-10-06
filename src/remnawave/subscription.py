@@ -60,19 +60,35 @@ class RemnawaveSubscriptionClient:
             for key, value in (request_headers or {}).items()
             if key.lower() in {"user-agent", "x-hwid", "x-device-os", "x-ver-os", "x-device-model"}
         }
-        response = await self.http_client.get(url, headers=headers)
-        if response.status_code == 404:
-            raise SubscriptionPayloadError("subscription not found")
-        if response.status_code >= 400:
-            raise SubscriptionPayloadError(f"subscription upstream HTTP {response.status_code}")
-        body = response.text.strip()
-        if not body:
-            raise SubscriptionPayloadError("empty subscription payload")
-        return SubscriptionPayload(
-            body=body,
-            content_type=response.headers.get("content-type", "text/plain").split(";", 1)[0].strip(),
-            headers={key.lower(): value for key, value in response.headers.items()},
-        )
+        async with self.http_client.stream("GET", url, headers=headers) as response:
+            if response.status_code == 404:
+                raise SubscriptionPayloadError("subscription not found")
+            if response.status_code >= 400:
+                raise SubscriptionPayloadError(f"subscription upstream HTTP {response.status_code}")
+
+            content_length = response.headers.get("content-length")
+            if content_length is not None:
+                try:
+                    declared_length = int(content_length)
+                except ValueError as exc:
+                    raise SubscriptionPayloadError("invalid subscription content length") from exc
+                if declared_length > self.config.max_subscription_bytes:
+                    raise SubscriptionPayloadError("subscription payload too large")
+
+            body_bytes = bytearray()
+            async for chunk in response.aiter_bytes():
+                body_bytes.extend(chunk)
+                if len(body_bytes) > self.config.max_subscription_bytes:
+                    raise SubscriptionPayloadError("subscription payload too large")
+
+            body = bytes(body_bytes).decode(response.encoding or "utf-8").strip()
+            if not body:
+                raise SubscriptionPayloadError("empty subscription payload")
+            return SubscriptionPayload(
+                body=body,
+                content_type=response.headers.get("content-type", "text/plain").split(";", 1)[0].strip(),
+                headers={key.lower(): value for key, value in response.headers.items()},
+            )
 
 
 def detect_format(body: str) -> str:
