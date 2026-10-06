@@ -79,3 +79,18 @@ Fail closed: main failure, secondary failure, missing/expired secondary, malform
 ## Security model
 
 Remnawave credentials are environment/configuration inputs, never source-controlled. Secrets are never included in URLs, logs, test fixtures, or errors. Upstream TLS verification remains enabled. The endpoint exposes only the minimum required client information.
+
+
+## Optional explicit-pair integration
+
+The original deterministic A2 path remains unchanged and stateless. Rezeis integration adds
+a separate optional path for arbitrary operator-selected pairs:
+
+`Rezeis subscription IDs -> authenticated Rezeis user detail -> stored configUrl pair -> SQLite mapping -> merged client URL`.
+
+Only the mapping needed by the selected pair is persisted. The merge service never writes to
+Rezeis, never changes a Rezeis subscription, and never stores the Rezeis admin bearer token.
+The token is accepted only for the request and is revalidated by Rezeis.
+
+This persistence is deliberately isolated from the A2 core so enabling the integration does
+not turn the original username/shortUuid resolution path into a database-backed design.
