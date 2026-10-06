@@ -2493,3 +2493,32 @@ CI: **PENDING / no status entries exposed**.
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+
+## 2026-10-06 — Entry 0042 — Cross-origin admin API verification hardening
+
+### Finding
+The runtime Rezeis addon calls the merge administration API from the Rezeis browser origin. When the merge service is hosted on a different origin, the browser sends a CORS preflight because the addon uses the Rezeis Bearer token in the `Authorization` header.
+
+### Fix
+- Added FastAPI CORS middleware.
+- The allowed origin is derived strictly from `REZEIS_BASE_URL`.
+- Only the merge API's required methods/headers are allowed.
+- Credentials are not enabled because authentication is carried explicitly through the Rezeis Bearer header.
+- No wildcard origin was introduced.
+
+### Verification
+- Source was reread after the change.
+- No official Rezeis/Reiwa source was changed.
+- Live browser testing remains pending.
+- CI is not claimed green because the GitHub status endpoint currently exposes no status entries for the current branch head.
+
+### Changed files
+- `src/http_endpoint.py`
+- `PROJECT_JOURNAL.md` — append-only entry only.
+
+### Commit
+- `c9955f99d0c4b5137f12fc2f8a0172bbe589a853` — allow Rezeis admin origin for merge API
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
