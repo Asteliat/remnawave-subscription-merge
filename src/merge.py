@@ -66,6 +66,33 @@ def _replace_strings(value: Any, replacements: dict[str, str]) -> Any:
     return value
 
 
+def _validate_unique_names(items: list[Any], key: str, label: str) -> None:
+    seen: set[str] = set()
+    for item in items:
+        if not isinstance(item, dict) or not item.get(key):
+            raise SubscriptionPayloadError(f"{label} is missing {key}")
+        name = str(item[key])
+        if name in seen:
+            raise SubscriptionPayloadError(f"{label} has duplicate {key}: {name}")
+        seen.add(name)
+
+
+def _replace_singbox_references(value: Any, replacements: dict[str, str]) -> Any:
+    if isinstance(value, list):
+        return [_replace_singbox_references(item, replacements) for item in value]
+    if isinstance(value, dict):
+        result = {}
+        for key, item in value.items():
+            if key == "outbounds" and isinstance(item, list):
+                result[key] = [replacements.get(ref, ref) if isinstance(ref, str) else ref for ref in item]
+            elif key == "detour" and isinstance(item, str):
+                result[key] = replacements.get(item, item)
+            else:
+                result[key] = _replace_singbox_references(item, replacements)
+        return result
+    return value
+
+
 def _merge_clash(main: dict[str, Any], secondary: dict[str, Any]) -> dict[str, Any]:
     result = deepcopy(main)
     main_proxies = result.get("proxies")
@@ -73,7 +100,9 @@ def _merge_clash(main: dict[str, Any], secondary: dict[str, Any]) -> dict[str, A
     if not isinstance(main_proxies, list) or not isinstance(secondary_proxies, list):
         raise SubscriptionPayloadError("Clash subscription has no valid proxies list")
 
-    used = {item.get("name") for item in main_proxies if isinstance(item, dict) and item.get("name")}
+    _validate_unique_names(main_proxies, "name", "Clash proxy")
+    _validate_unique_names(secondary_proxies, "name", "Clash proxy")
+    used = {item["name"] for item in main_proxies}
     replacements: dict[str, str] = {}
     secondary_out = []
     for item in secondary_proxies:
@@ -119,7 +148,9 @@ def _merge_singbox(main: dict[str, Any], secondary: dict[str, Any]) -> dict[str,
     if not isinstance(main_outbounds, list) or not isinstance(secondary_outbounds, list):
         raise SubscriptionPayloadError("Sing-box subscription has no valid outbounds list")
 
-    used = {item.get("tag") for item in main_outbounds if isinstance(item, dict) and item.get("tag")}
+    _validate_unique_names(main_outbounds, "tag", "Sing-box outbound")
+    _validate_unique_names(secondary_outbounds, "tag", "Sing-box outbound")
+    used = {item["tag"] for item in main_outbounds}
     replacements: dict[str, str] = {}
     secondary_nodes: list[dict[str, Any]] = []
 
@@ -152,7 +183,7 @@ def _merge_singbox(main: dict[str, Any], secondary: dict[str, Any]) -> dict[str,
         used.add(str(clone["tag"]))
         secondary_nodes.append(clone)
 
-    secondary_nodes = [_replace_strings(item, replacements) for item in secondary_nodes]
+    secondary_nodes = [_replace_singbox_references(item, replacements) for item in secondary_nodes]
     result_outbounds = main_outbounds + secondary_nodes
     result["outbounds"] = result_outbounds
 
@@ -186,7 +217,9 @@ def _merge_xray(main: list[Any], secondary: list[Any]) -> list[Any]:
     if not isinstance(main_outbounds, list) or not isinstance(secondary_outbounds, list):
         raise SubscriptionPayloadError("Xray JSON subscription has no valid outbounds list")
 
-    used = {item.get("tag") for item in main_outbounds if isinstance(item, dict) and item.get("tag")}
+    _validate_unique_names(main_outbounds, "tag", "Xray outbound")
+    _validate_unique_names(secondary_outbounds, "tag", "Xray outbound")
+    used = {item["tag"] for item in main_outbounds}
     secondary_out: list[dict[str, Any]] = []
     replacements: dict[str, str] = {}
 
