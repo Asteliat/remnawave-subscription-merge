@@ -2522,3 +2522,69 @@ The runtime Rezeis addon calls the merge administration API from the Rezeis brow
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+
+## 2026-10-06 — Entry 0043 — Public repository packaging and production installer
+
+### Scope
+Подготовлена публичная версия проекта на русском языке. Существующая merge-логика и Rezeis integration не переписывались; добавлен полноценный deployment-контур.
+
+### Что добавлено
+- Полностью переписан README на русском языке: назначение, A2, ручные Rezeis-пары, endpoints, установка, обновление, runtime-addon и границы проекта.
+- Добавлен Dockerfile на Python 3.12 с непривилегированным runtime-пользователем.
+- Добавлен Docker Compose с localhost-only публикацией 127.0.0.1:18080, persistent volume для pair store, healthcheck и no-new-privileges.
+- Добавлен серверный deploy/install.sh для Debian/Ubuntu: проверка ОС, установка базовых зависимостей, установка Docker при отсутствии, clone/update проекта, создание защищённого .env, сборка и запуск контейнера, healthcheck.
+- Добавлен deploy/update.sh для безопасного обновления без перезаписи .env и без удаления persistent volume.
+- Переведены на русский deploy/README.md, ROADMAP.md, ARCHITECTURE.md, SECURITY.md и комментарии .env.example.
+- Описание systemd unit переведено на русский; systemd оставлен как альтернативный способ установки.
+- Документация явно фиксирует runtime docker cp-модель для Rezeis: официальный Rezeis/Reiwa source не изменяется, overlay повторно применяется после пересоздания контейнера.
+
+### Архитектурное решение
+Основным способом установки выбран Docker. Это позволяет не требовать Python-зависимости на сервере и гарантирует одинаковое окружение приложения. Systemd оставлен как fallback для существующих host-based установок.
+
+Для Rezeis сохранена отдельная runtime-интеграция: merge service остаётся самостоятельным контейнером, а admin-addon пробрасывается в работающий Rezeis контейнер через docker cp. Официальные репозитории Rezeis и Reiwa не изменяются.
+
+### Проверки
+- Текущий dev HEAD проверен через GitHub API.
+- Новые deployment-файлы записаны в репозиторий.
+- README и основные эксплуатационные документы приведены к русскому языку.
+- CI специально не объявляется зелёным только по наличию workflow; для конкретного HEAD нужен фактический GitHub Actions run.
+- Установщик и Docker deployment пока не запускались на реальном сервере из этого чата, поэтому live deployment не заявляется выполненным.
+
+### Изменённые файлы
+- README.md
+- Dockerfile
+- .dockerignore
+- deploy/docker-compose.yml
+- deploy/install.sh
+- deploy/update.sh
+- deploy/README.md
+- deploy/remnawave-subscription-merge.service
+- ROADMAP.md
+- ARCHITECTURE.md
+- SECURITY.md
+- .env.example
+- PROJECT_JOURNAL.md — только новая запись в конце.
+
+### Коммиты
+- e96ecda5a529efd3f89fe2ca061afca7f0e0a32f — русский публичный README
+- 726098973266eabca4987fdc9e4f5023608df103 — Dockerfile
+- b49427f064d8f9103759341f742906f7a55cc533 — Docker ignore
+- db5671e51b1e646ee27f1f298d2d3691b71d5a8d — Docker Compose
+- 8ddd4c2911b37bd7c1f550d1fc3e0113adc017e8 — серверный установщик
+- b854279593e966c8ec9689813318139f9171c593 — update script
+- f092250b806985565c642825b9bb9426f72d46e8 — русский deployment guide
+- 2dad01a9d761ae9f36df6dab7a0a352c9d69baf4 — русский roadmap
+- 0ddbe2b5d544caab92ca32ad9f1ad6a61b924660 — русский architecture
+- a5a1590d3bc15ae33546031db2899eaf79f8a31c — русский security policy
+- ec42bdc51c9fc220f68eadd0eab309991be45bab — русский .env template
+- e3a75e309db26678d6afbc43fb9917e6d3e43e4e — русский systemd description
+
+### Статус
+Публичная упаковка и deployment foundation: IMPLEMENTED / source-written.
+Реальный запуск install.sh на сервере: PENDING.
+Реальный Docker build/healthcheck: PENDING.
+Реальный Rezeis docker cp rollout: PENDING.
+
+### Обязательная формулировка
+«старые изменения не тронуты, новые внесены.»
