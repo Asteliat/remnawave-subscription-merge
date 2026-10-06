@@ -500,3 +500,31 @@ Automated test infrastructure: ADDED, RUN NOT YET CONFIRMED.
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+## 2026-10-06 — Entry 0008 — CI packaging hardening
+
+### Actions
+- Added `pyproject.toml` with runtime dependencies and a dedicated test extra.
+- Updated GitHub Actions to install the repository itself with `pip install -e ".[test]"` before running `pytest -q`.
+- This removes the previous ambiguity where CI installed individual packages without installing/configuring the repository package.
+
+### Verification
+- The workflow is present on `dev`.
+- GitHub still returns no workflow run for the latest commit through the available workflow-run endpoint, so CI execution is not claimed passed.
+- No live Remnawave credentials were used and no production data was modified.
+
+### Changed files
+- `pyproject.toml`
+- `.github/workflows/ci.yml`
+- `PROJECT_JOURNAL.md` (append-only entry only)
+
+### Commits
+- `c10649f13ab9145431f392bb9b1092bfaf4e65b7` — project metadata/test configuration
+- `fc9b890c5b4fb5c6984ce2db7da3540460c5403e` — CI dependency installation hardening
+- Journal update commit follows.
+
+### Status
+CI configuration: HARDENED; execution remains UNVERIFIED.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
