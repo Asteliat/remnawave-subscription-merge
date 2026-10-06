@@ -1,5 +1,7 @@
 import base64
 
+import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 import src.http_endpoint as endpoint
@@ -182,12 +184,18 @@ def test_explicit_singbox_suffix_is_forwarded_to_both_subscriptions(monkeypatch)
 
 
 
+def _small_config() -> RemnawaveConfig:
+    return RemnawaveConfig(
+        base_url="https://remna.test",
+        api_token="test-token",
+        timeout_seconds=5.0,
+        secondary_suffix="_addsub",
+        max_subscription_bytes=16,
+    )
+
+
 @pytest.mark.asyncio
-async def _small_config() -> RemnawaveConfig:
-    return RemnawaveConfig(base_url="https://remna.test", api_token="test-token", timeout_seconds=5.0, secondary_suffix="_addsub", max_subscription_bytes=16)
-
-
-def test_public_subscription_rejects_oversized_content_length() -> None:
+async def test_public_subscription_rejects_oversized_content_length() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, headers={"content-length": "17"}, text="x" * 17)
 
@@ -203,6 +211,6 @@ async def test_public_subscription_rejects_oversized_stream_without_content_leng
         return httpx.Response(200, text="x" * 17)
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        subscriptions = RemnawaveSubscriptionClient(_config(), client)
+        subscriptions = RemnawaveSubscriptionClient(_small_config(), client)
         with pytest.raises(SubscriptionPayloadError, match="too large"):
             await subscriptions.fetch_public("https://sub.example/alice")
