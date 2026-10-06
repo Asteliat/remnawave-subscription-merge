@@ -2,6 +2,7 @@ import base64
 import json
 
 import pytest
+import yaml
 
 from src.merge import merge_payloads
 from src.remnawave.subscription import SubscriptionPayloadError, detect_format
@@ -14,20 +15,20 @@ def b64(*entries: str) -> str:
 def test_base64_uri_merge_deduplicates_exact_entries() -> None:
     body, content_type = merge_payloads(b64("vless://one", "vless://two"), b64("vless://two", "vless://three"))
     assert content_type == "text/plain"
-    decoded = base64.b64decode(body).decode().splitlines()
-    assert decoded == ["vless://one", "vless://two", "vless://three"]
+    assert base64.b64decode(body).decode().splitlines() == ["vless://one", "vless://two", "vless://three"]
 
 
-def test_clash_merge_keeps_main_top_level_and_deduplicates_names() -> None:
-    main = json.dumps({"proxies": [{"name": "one", "server": "a"}], "mode": "rule"})
-    secondary = json.dumps({"proxies": [{"name": "one", "server": "other"}, {"name": "two", "server": "b"}], "mode": "global"})
-    body, _ = merge_payloads(main, secondary)
-    result = json.loads(body)
+def test_clash_yaml_merge_keeps_main_top_level_and_deduplicates_names() -> None:
+    main = yaml.safe_dump({"proxies": [{"name": "one", "server": "a"}], "mode": "rule"}, sort_keys=False)
+    secondary = yaml.safe_dump({"proxies": [{"name": "one", "server": "other"}, {"name": "two", "server": "b"}], "mode": "global"}, sort_keys=False)
+    body, content_type = merge_payloads(main, secondary)
+    result = yaml.safe_load(body)
+    assert content_type == "text/yaml"
     assert result["mode"] == "rule"
     assert [p["name"] for p in result["proxies"]] == ["one", "two"]
 
 
-def test_sing_box_merge_by_tag() -> None:
+def test_json_outbounds_merge_by_tag() -> None:
     main = json.dumps({"outbounds": [{"tag": "one", "type": "direct"}], "route": {"final": "one"}})
     secondary = json.dumps({"outbounds": [{"tag": "one", "type": "block"}, {"tag": "two", "type": "direct"}]})
     body, _ = merge_payloads(main, secondary)
