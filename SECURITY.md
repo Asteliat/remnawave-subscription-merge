@@ -19,6 +19,7 @@ Logs must not contain authorization headers, API tokens, cookies, full private s
 - Use HTTPS in deployed environments.
 - Verify TLS certificates.
 - Set finite connect/read/request timeouts.
+- Enforce a finite maximum rendered subscription body size before parsing it.
 - Do not follow arbitrary redirects from untrusted sources.
 - Send only the required authorization material to the configured Remnawave endpoint.
 
