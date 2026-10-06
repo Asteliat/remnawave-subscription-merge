@@ -397,8 +397,7 @@ The middleware will not blindly copy upstream headers. Subscription body merging
 - `src/merge.py`
 - `tests/test_merge.py`
 - `PROJECT_JOURNAL.md` (append-only entry only)
-### Commits- `a244e9a4d9228d133bf3ead461a0ed7945271862` — protected subscription fetch and format detection
-- `328e45be4c61ae7489bd778368f012b910119992` — merge engine
+### Commits- `a244e9a4d9228d133bf3ead461a0ed7945271862` — protected subscription fetch and format detection- `328e45be4c61ae7489bd778368f012b910119992` — merge engine
 - `fe7c0b5af6a0a4d95c0e0ac27347650709307427` — merge tests
 - Journal update commit follows.
 
@@ -797,7 +796,6 @@ Full stage: still awaiting automated/live verification.
 ### Verification finding
 A repository-level review of the rendered-subscription merge exposed a functional risk that was not visible in the earlier synthetic tests: Remnawave can render identical proxy names/tags for two separate users when the same template/host remark is used.
 The previous merge policy treated duplicate names/tags as "main wins". That could silently discard the addsub connection, which is unacceptable for A2.
-
 ### Correction
 - Clash/Mihomo duplicate proxy names are now renamed deterministically with an `[addsub]` suffix.
 - If a secondary proxy-group has the same name as a main group, its proxy references are merged into the existing main group.
@@ -1160,6 +1158,65 @@ The existing live evidence does **not** justify changing the Remnawave Response 
 
 ### Next large stage
 Implement and test exact Sing-box and Xray JSON merge semantics against the verified live structures, then exercise the middleware using explicit `/singbox` and `/json` upstream requests in a controlled E2E test. After that, decide whether any Response Rule change is actually required.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
+
+## 2026-10-06 — Entry 0022 — Implemented live-verified Sing-box and Xray JSON merge semantics
+
+### Context
+The live structural evidence from Entry 0021 showed that the existing generic JSON merge was insufficient for the actual Remnawave formats: Sing-box responses contain a shared selector plus direct and VLESS outbounds, while Xray JSON responses are a one-element root list containing a configuration object. The merge implementation was therefore extended to match those verified structures rather than treating every JSON body as a flat outbound list.
+
+### Implementation
+- Updated JSON format detection:
+  - object root with `outbounds` → Sing-box JSON;
+  - one-element list whose object contains `outbounds` → Xray JSON;
+  - unsupported JSON roots remain fail-closed.
+- Added Sing-box-specific merge semantics:
+  - preserve the main configuration/template as the source of truth;
+  - keep a single `→ Remnawave` selector instead of duplicating the selector;
+  - keep the main `direct` outbound instead of duplicating an identical direct outbound;
+  - preserve the main VLESS outbound;
+  - rename a colliding secondary node deterministically with `[addsub]` and add it to the main Remnawave selector;
+  - preserve the existing route, DNS, inbound, and experimental configuration.
+- Added Xray JSON merge semantics for the verified one-element root-list shape:
+  - preserve the main configuration object, including DNS, routing, inbounds and remarks;
+  - merge outbounds;
+  - deduplicate identical `freedom`/`blackhole` infrastructure outbounds;
+  - deterministically rename colliding secondary proxy outbounds with `[addsub]`;
+  - keep the main routing configuration as the source of truth.
+- Preserved existing Base64 and Clash/Mihomo behavior.
+
+### Tests added
+Added repository tests for:
+- Sing-box selector preservation and secondary VLESS insertion;
+- Xray JSON one-element list detection;
+- Xray JSON main infrastructure preservation and secondary VLESS insertion.
+
+### Verification status
+- Live structural evidence: VERIFIED in Entry 0021.
+- Code changes: COMMITTED.
+- GitHub combined status for the latest test commit currently has no status entries, so CI is NOT CLAIMED PASSED.
+- Local pytest after these changes has NOT YET BEEN EXECUTED in the current stage.
+- Live middleware E2E using explicit `/singbox` and `/json` upstream bodies remains pending.
+- No Remnawave configuration or data was modified.
+
+### Changed files
+- `src/merge.py`
+- `src/remnawave/subscription.py`
+- `tests/test_merge.py`
+- `PROJECT_JOURNAL.md` (append-only entry only)
+
+### Commits
+- `3e9ebaade313dc24ee1ab9e65f62a1fee37b2b81` — add live Sing-box and Xray JSON merge semantics
+- `758217f8472d7c1e4a042dcc4af19027dc3d9273` — detect Xray JSON subscription lists
+- `fb2bea823a854533f00249d205d2bd7c40e06766` — cover live Sing-box and Xray JSON merge shapes
+- This journal update is the final commit of this documentation stage.
+
+### Status
+JSON merge implementation: IMPLEMENTED, NOT YET LOCALLY VERIFIED.
+Live Remnawave configuration: UNCHANGED.
+Next gate: run the full local test suite, then perform controlled live JSON merge E2E.
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
