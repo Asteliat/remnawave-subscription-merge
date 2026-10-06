@@ -1,5 +1,7 @@
 """HTTP entry point for the client-facing merged subscription."""
 
+import asyncio
+
 import httpx
 from fastapi import FastAPI, HTTPException, Request, Response
 
@@ -28,18 +30,20 @@ async def healthz() -> dict[str, str]:
     return {"status": "ok"}
 
 
-async def _merged_subscription(username: str, request: Request, suffix: str = "") -> Response:
+async def _merged_subscription(identifier: str, request: Request, suffix: str = "") -> Response:
     try:
         config = RemnawaveConfig.from_env()
         request_headers = {key: value for key, value in request.headers.items() if key in _FORWARD_HEADERS}
 
         async with RemnawaveClient(config) as users:
-            main, secondary = await users.resolve_a2_pair(username)
+            main, secondary = await users.resolve_a2_pair_identifier(identifier)
             subscriptions = RemnawaveSubscriptionClient(config, users.http_client)
-            first = await subscriptions.fetch_public(main.subscription_url, request_headers, suffix=suffix)
-            second = await subscriptions.fetch_public(secondary.subscription_url, request_headers, suffix=suffix)
+            first, second = await asyncio.gather(
+                subscriptions.fetch_public(main.subscription_url, request_headers, suffix=suffix),
+                subscriptions.fetch_public(secondary.subscription_url, request_headers, suffix=suffix),
+            )
 
-        body, content_type = merge_payloads(first.body, second.body)
+        body, content_type = merge_payloads(first.body, second.body, secondary_label=config.secondary_label)
         headers = {"Cache-Control": "no-store"}
         for key in _RESPONSE_HEADERS:
             value = first.headers.get(key)
@@ -63,15 +67,15 @@ async def _merged_subscription(username: str, request: Request, suffix: str = ""
 
 
 @app.get("/sub/{username}")
-async def merged_subscription(username: str, request: Request) -> Response:
-    return await _merged_subscription(username, request)
+async def merged_subscription(identifier: str, request: Request) -> Response:
+    return await _merged_subscription(identifier, request)
 
 
 @app.get("/sub/{username}/json")
-async def merged_xray_json_subscription(username: str, request: Request) -> Response:
-    return await _merged_subscription(username, request, suffix="json")
+async def merged_xray_json_subscription(identifier: str, request: Request) -> Response:
+    return await _merged_subscription(identifier, request, suffix="json")
 
 
 @app.get("/sub/{username}/singbox")
-async def merged_singbox_subscription(username: str, request: Request) -> Response:
-    return await _merged_subscription(username, request, suffix="singbox")
+async def merged_singbox_subscription(identifier: str, request: Request) -> Response:
+    return await _merged_subscription(identifier, request, suffix="singbox")
