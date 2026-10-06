@@ -1255,3 +1255,50 @@ Perform controlled live E2E through the running middleware using explicit Remnaw
 
 ### Mandatory preservation statement
 «старые изменения не тронуты, новые внесены.»
+
+
+## 2026-10-06 — Entry 0024 — Added explicit JSON and Sing-box middleware routes
+
+### Context
+The live verification established that Remnawave can render Xray JSON through the explicit `/json` subscription suffix, while the middleware's existing `/sub/{username}` endpoint intentionally follows the normal User-Agent-selected subscription URL. A direct request to `/sub/{username}/json` and `/sub/{username}/singbox` previously returned HTTP 404 because those middleware routes did not exist.
+
+A prior diagnostic script also incorrectly looked for `subscriptionUrl` at the root of the Remnawave API response. The actual project client already correctly handles the API envelope through `payload["response"]` when present. No application defect was found from that diagnostic result.
+
+### Implementation
+- Added explicit middleware routes:
+  - `GET /sub/{username}/json`
+  - `GET /sub/{username}/singbox`
+- Kept the existing `GET /sub/{username}` route and its User-Agent-driven behavior intact.
+- Refactored the endpoint into a shared merge handler so all three routes use the same A2 resolution, metadata handling, error mapping, and merge engine.
+- Extended the Remnawave subscription client with an explicit suffix parameter supporting only `json`, `singbox`, or the existing empty suffix.
+- Added URL-safe suffix construction using parsed URL components so query strings/fragments are preserved and the suffix is inserted into the path rather than appended after the query.
+- Unsupported suffix values fail with a controlled `ValueError` rather than being forwarded upstream.
+- Added endpoint tests proving that both A2 subscriptions receive the same requested explicit suffix.
+
+### Design decision
+The middleware now supports an explicit format contract without modifying Remnawave Response Rules. The normal endpoint remains backward-compatible, while Xray and Sing-box clients can use deterministic explicit-format URLs when required.
+
+### Changed files
+- `src/http_endpoint.py`
+- `src/remnawave/subscription.py`
+- `tests/test_http_endpoint.py`
+- `PROJECT_JOURNAL.md` (append-only entry only)
+
+### Commits
+- `e282b5fd6e90f6dc6c6f1217206e09e8058d3135` — support explicit subscription format suffixes
+- `f22b4bdc2daee87250edd937d4701d27dd0af4ed` — expose explicit JSON and Sing-box subscription routes
+- `b0dfae8abe60d3e9b69441bfc5000f1b17b1c72e` — cover explicit subscription format routes
+- This journal update is the documentation commit for this implementation block.
+
+### Verification status
+- Code has been committed to GitHub `dev`.
+- Local/server pytest verification after this exact commit sequence: PENDING.
+- Live middleware `/json` and `/singbox` E2E: PENDING.
+- Remnawave configuration/data: unchanged.
+- No secrets were added or committed.
+
+### Next large stage
+Synchronize the server from `origin/dev`, run the full test suite, restart the middleware from the updated code, then perform live Xray JSON and Sing-box E2E for both A2 users. Inspect only non-secret structure and fingerprints.
+
+### Mandatory preservation statement
+«старые изменения не тронуты, новые внесены.»
